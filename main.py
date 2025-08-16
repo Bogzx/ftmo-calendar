@@ -15,8 +15,17 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-# Load environment variables from .env file
-load_dotenv()
+# --- CRON JOB FIX: Use absolute paths to find files ---
+# Get the absolute path of the directory where the script is located
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Construct absolute paths for required files
+ENV_PATH = os.path.join(SCRIPT_DIR, '.env')
+CREDENTIALS_PATH = os.path.join(SCRIPT_DIR, 'credentials.json')
+TOKEN_PATH = os.path.join(SCRIPT_DIR, 'token.json')
+
+# Load environment variables from the .env file using its absolute path
+load_dotenv(dotenv_path=ENV_PATH)
 
 # --- CONFIGURATION ---
 # Get the API key from the .env file
@@ -87,7 +96,6 @@ class GeminiEventParser:
         try:
             response = self.model.generate_content(prompt)
             
-            # CORRECTED: Clean the response to remove markdown code blocks before parsing.
             clean_text = re.sub(r'```(json)?', '', response.text).strip()
 
             event_list = json.loads(clean_text)
@@ -120,7 +128,8 @@ class GoogleCalendarManager:
     """
     Manages events on a Google Calendar.
     """
-    def __init__(self, credentials_file='credentials.json', token_file='token.json'):
+    # UPDATED: Now uses the absolute paths defined at the top of the script.
+    def __init__(self, credentials_file=CREDENTIALS_PATH, token_file=TOKEN_PATH):
         self.creds = None
         if os.path.exists(token_file):
             self.creds = Credentials.from_authorized_user_file(token_file, SCOPES)
