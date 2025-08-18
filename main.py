@@ -202,6 +202,8 @@ class GoogleCalendarManager:
         """
         Creates an event on the specified calendar.
         """
+        if end_time < datetime.datetime.utcnow():
+            return
         try:
             event = {
                 'summary': summary,
