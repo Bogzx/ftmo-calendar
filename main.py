@@ -9,6 +9,9 @@ import google.generativeai as genai
 from dotenv import load_dotenv
 from dateutil.parser import parse as date_parse
 
+# Added for timezone-aware datetime objects
+from datetime import timezone
+
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -69,7 +72,8 @@ class GeminiEventParser:
     """
     def __init__(self, api_key):
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-2.5-pro')
+        # NOTE: Consider using a more recent or specific model if available
+        self.model = genai.GenerativeModel('gemini-2.5-pro') 
 
     def parse_event_details(self, text):
         """
@@ -109,12 +113,13 @@ class GeminiEventParser:
                 start_str = event.get("start_time")
                 end_str = event.get("end_time")
                 if start_str and end_str:
+                    # Parse string to a naive datetime object first
                     start_time = datetime.datetime.fromisoformat(start_str)
                     end_time = datetime.datetime.fromisoformat(end_str)
                     parsed_events.append((start_time, end_time))
             
             if parsed_events:
-                 print(f"AI identified {len(parsed_events)} event(s).")
+                print(f"AI identified {len(parsed_events)} event(s).")
             else:
                 print("AI did not find any specific event times in the text.")
 
@@ -128,7 +133,6 @@ class GoogleCalendarManager:
     """
     Manages events on a Google Calendar.
     """
-    # UPDATED: Now uses the absolute paths defined at the top of the script.
     def __init__(self, credentials_file=CREDENTIALS_PATH, token_file=TOKEN_PATH):
         self.creds = None
         if os.path.exists(token_file):
@@ -159,9 +163,10 @@ class GoogleCalendarManager:
                     return calendar_list_entry['id']
             
             print(f"Calendar not found. Creating a new one...")
+            # BEST PRACTICE: Use IANA timezone for auto Daylight Saving adjustments
             calendar_body = {
                 'summary': calendar_name,
-                'timeZone': 'Etc/GMT-3'
+                'timeZone': 'Europe/Bucharest' 
             }
             created_calendar = self.service.calendars().insert(body=calendar_body).execute()
             print(f"Successfully created calendar '{calendar_name}'.")
@@ -191,7 +196,7 @@ class GoogleCalendarManager:
             existing_events = set()
             for event in events:
                 start = event['start'].get('dateTime', event['start'].get('date'))
-                start_dt = date_parse(start)
+                start_dt = date_parse(start) # dateutil.parser handles timezone conversion
                 existing_events.add((event['summary'], start_dt))
             return existing_events
         except HttpError as error:
@@ -200,16 +205,21 @@ class GoogleCalendarManager:
 
     def create_event(self, summary, description, start_time, end_time):
         """
-        Creates an event on the specified calendar.
+        Creates an event on the specified calendar, but only if it's in the future.
         """
-        if end_time < datetime.datetime.utcnow():
-            return
+        # --- NEW FEATURE: Check if the event is in the past ---
+        # Compare the event's end time with the current UTC time.
+        if end_time < datetime.datetime.now(timezone.utc):
+            print(f"Skipping past event: '{summary}' scheduled to end at {end_time}")
+            return # Exit the function, skipping the creation
+
         try:
             event = {
                 'summary': summary,
                 'description': description,
-                'start': {'dateTime': start_time.isoformat(), 'timeZone': 'Etc/GMT-3'},
-                'end': {'dateTime': end_time.isoformat(), 'timeZone': 'Etc/GMT-3'},
+                # The start_time and end_time are already timezone-aware
+                'start': {'dateTime': start_time.isoformat(), 'timeZone': 'Europe/Bucharest'},
+                'end': {'dateTime': end_time.isoformat(), 'timeZone': 'Europe/Bucharest'},
             }
             created_event = self.service.events().insert(calendarId=self.calendar_id, body=event).execute()
             print(f"Event created successfully: {created_event.get('htmlLink')}")
@@ -244,12 +254,15 @@ class TradingUpdateScheduler:
             print("Checking for duplicate events in calendar...")
             existing_events = self.calendar_manager.get_upcoming_events()
             
+            # Define the GMT+3 timezone for making naive datetimes aware
             gmt_plus_3 = datetime.timezone(datetime.timedelta(hours=3))
 
             for start_time, end_time in parsed_events:
+                # Attach the GMT+3 timezone info to the parsed times
                 aware_start_time = start_time.replace(tzinfo=gmt_plus_3)
                 aware_end_time = end_time.replace(tzinfo=gmt_plus_3)
                 
+                # Use the aware time for the duplicate check
                 event_tuple = (EVENT_SUMMARY, aware_start_time)
 
                 if event_tuple in existing_events:
