@@ -9,7 +9,11 @@ import logging
 import google.generativeai as genai
 from dotenv import load_dotenv
 from dateutil.parser import parse as date_parse
-from zoneinfo import ZoneInfo
+
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    from backports.zoneinfo import ZoneInfo
 
 # Added for timezone-aware datetime objects
 from datetime import timezone
