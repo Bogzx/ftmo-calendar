@@ -1,0 +1,34 @@
+# AutoFtmoCalendar configuration. Every key is optional — these are the defaults.
+# Copy to config.toml and edit. Secrets do NOT go here; put them in .env.
+
+[source]
+url = "https://ftmo.com/en/trading-updates/"
+keywords = ["maintenance", "market is closed", "ctrader", "holiday", "crypto"]
+timezone = "Europe/Bucharest"   # assumed when the announcement states no offset
+max_posts = 4                   # how many recent posts to process per run
+max_age_days = 14               # ignore posts older than this
+
+[llm]
+# provider "gemini" uses Google AI Studio (free tier available).
+# provider "openai-compatible" works with OpenRouter, OpenAI, Groq, Ollama, …
+provider = "gemini"
+base_url = ""                   # e.g. "https://openrouter.ai/api/v1" for OpenRouter
+models = ["gemini-2.5-flash", "gemini-2.0-flash"]   # ordered fallback list
+# The API key comes from the LLM_API_KEY environment variable (see .env.example).
+
+[calendar]
+auth_mode = "oauth"             # "oauth" (desktop) or "service_account" (servers; never expires)
+name = "Trading"                # calendar found-or-created in oauth mode
+calendar_id = ""                # REQUIRED for service_account; optional override for oauth
+timezone = "Europe/Bucharest"
+reminders_minutes = [60, 10]    # popup reminders before each event
+
+[events]
+max_duration_hours = 48         # sanity cap; longer extractions are rejected
+max_days_ahead = 120
+
+[events.summaries]
+maintenance = "⚠️ FTMO Platform Maintenance"
+crypto_closure = "🚫 Crypto Market Closed"
+holiday_hours = "🕒 Modified Trading Hours"
+other = "ℹ️ FTMO Trading Update"
