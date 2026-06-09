@@ -57,14 +57,25 @@ is also written to the Google event's `extendedProperties.private.aftc_key`, so
 dedup survives a lost state file: before creating, query the calendar by
 `privateExtendedProperty=aftc_key=...` (no 7-day window limitation).
 
-### 2.3 Deterministic parsing
+### 2.3 Deterministic parsing — provider-agnostic LLM layer
 
-- Migrate from the deprecated `google-generativeai` SDK to **`google-genai`**.
-- `temperature=0`, structured output via `response_schema` (Pydantic model),
-  not just JSON mime type. Schema per event:
+- The parser depends on an `LLMClient` protocol, not a vendor SDK. Two backends:
+  - **`openai-compatible`** (the `openai` package with a configurable
+    `base_url`): covers OpenRouter, OpenAI, Groq, Mistral, Together, Ollama,
+    and any other OpenAI-protocol endpoint. Uses JSON response format where the
+    provider supports it; otherwise plain JSON instructions.
+  - **`gemini`** (the current `google-genai` SDK, replacing the deprecated
+    `google-generativeai`): native `response_schema` structured output.
+- Config selects the backend:
+  `[llm] provider = "openai-compatible" | "gemini"`, `base_url`, `models`
+  (ordered fallback list), `api_key` read from the `LLM_API_KEY` env var
+  (`GEMINI_API_KEY` still honored for backward compatibility).
+- `temperature=0` everywhere. Output is validated with a Pydantic schema
+  **regardless of provider**; on validation failure, one repair retry sends the
+  validation error back to the model, then the fallback model is tried. Schema
+  per event:
   `{event_type: enum[maintenance, crypto_closure, holiday_hours, other],
     start_time, end_time, stated_utc_offset, confidence: enum[high, low]}`.
-- Model list (ordered fallback) comes from config, not code.
 - Validation rules (reject + log + flag the post as needs-attention):
   - `end > start`
   - duration ≤ 48h (configurable)
@@ -84,7 +95,30 @@ dedup survives a lost state file: before creating, query the calendar by
 - Times stored timezone-aware; source timezone and calendar timezone both
   configurable (defaults preserve current behavior: Europe/Bucharest).
 
-### 2.5 Fail loudly
+### 2.5 Google Calendar auth that doesn't rot
+
+Two auth modes, selected in config:
+
+- **`service_account` (recommended for servers/cron):** the user creates a
+  service account, shares the target calendar with the service account's email
+  ("Make changes to events"), and sets `calendar_id` in config. No browser, no
+  token refresh, **nothing ever expires**. The `auth --check` command verifies
+  the account can see the calendar.
+- **`oauth` (desktop use):** the current flow, hardened:
+  - Interactive browser auth happens **only** in the explicit
+    `ftmo-calendar auth` command — never as a side effect of `run`. (Today an
+    expired token inside cron silently launches `run_local_server`, which
+    blocks forever on a headless machine.)
+  - On `RefreshError` during `run`: exit non-zero with an actionable message
+    ("run `ftmo-calendar auth` to re-authorize") and fire the notifier hook.
+  - `auth --check` reports token health: valid/expired, scopes, expiry time.
+  - README documents the root cause of weekly token death: OAuth apps left in
+    **"Testing" publishing status get 7-day refresh tokens**. Setup
+    instructions walk through publishing the app to Production (no Google
+    verification needed for personal use), which makes refresh tokens
+    long-lived.
+
+### 2.6 Fail loudly
 
 - Retries (3, backoff) only for *typed transient* errors: network timeouts,
   HTTP 429/5xx, Gemini rate limits.
@@ -107,11 +141,14 @@ src/ftmo_calendar/
     base.py           # Source protocol: fetch() -> list[SourcePost]
     ftmo.py
   parsing/
-    gemini.py         # google-genai, schema-enforced, temp 0
+    llm.py            # LLMClient protocol + extraction prompt + repair retry
+    openai_compat.py  # OpenRouter/OpenAI/Groq/Ollama/... via base_url
+    gemini.py         # google-genai native structured output
     validate.py
   sinks/
     base.py           # Sink protocol: reconcile(post_key, events) -> SyncResult
     google_calendar.py
+    auth.py           # oauth + service-account credential providers, auth --check
   notify/
     base.py           # Notifier protocol (implementations in Phase 2)
 tests/
@@ -122,9 +159,10 @@ tests/
   (prints planned creates/updates/deletes, touches nothing), `auth` (runs the
   OAuth flow explicitly instead of as a side effect), `status` (last run time,
   last content hashes, tracked events).
-- **Config**: `config.toml` (keywords, calendar name, timezones, model list,
-  summary templates, reminders, data dir) with env-var overrides; secrets
-  (`GEMINI_API_KEY`) stay in `.env`/environment. Ship `config.example.toml`
+- **Config**: `config.toml` (keywords, calendar name/id, auth mode, timezones,
+  LLM provider/base_url/models, summary templates, reminders, data dir) with
+  env-var overrides; secrets (`LLM_API_KEY`, legacy `GEMINI_API_KEY`) stay in
+  `.env`/environment. Ship `config.example.toml`
   and a complete `.env.example`.
 - **Data model** (`TradingEvent`): `event_key, event_type, summary, start, end
   (aware datetimes), source_post_key, source_url, excerpt`.
@@ -152,13 +190,16 @@ tests/
 **Phase 1 — the trustworthy sync core** (this design's implementation target)
 1. Secret purge + .gitignore fix
 2. Package restructure (src layout, modules above), pyproject, pinned deps
-3. `google-genai` migration: schema-enforced, temp-0 parsing + validation
+3. Provider-agnostic LLM layer (OpenAI-compatible + Gemini backends),
+   schema-validated temp-0 parsing + validation + repair retry
 4. Multi-post scraping with per-post keys
 5. State file + per-post content-hash caching
 6. Reconcile sync (create/update/delete via `aftc_key` extended property)
-7. Reminders + type-specific summaries + trimmed descriptions
-8. CLI (`run`, `--dry-run`, `auth`, `status`), fail-loud error handling
-9. Tests (fixtures + golden files), ruff/mypy/pytest CI
+7. Auth hardening: service-account mode, oauth-only-in-`auth`-command,
+   `auth --check`, Production-publishing docs
+8. Reminders + type-specific summaries + trimmed descriptions
+9. CLI (`run`, `--dry-run`, `auth`, `status`), fail-loud error handling
+10. Tests (fixtures + golden files), ruff/mypy/pytest CI
 
 Done = same product, but parsing is deterministic, reschedules are handled,
 nothing is silently missed, and the repo installs and reads like a real project.
