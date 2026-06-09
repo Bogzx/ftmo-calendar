@@ -160,7 +160,8 @@ def load_config(path: Path, env: Mapping[str, str] | None = None) -> AppConfig:
     data: dict = {}
     if path.exists():
         try:
-            data = tomllib.loads(path.read_text(encoding="utf-8"))
+            # utf-8-sig: tolerate the BOM that Notepad/PowerShell prepend on Windows
+            data = tomllib.loads(path.read_text(encoding="utf-8-sig"))
         except tomllib.TOMLDecodeError as e:
             raise ConfigError(f"cannot parse {path}: {e}") from e
 

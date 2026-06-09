@@ -1,4 +1,4 @@
-"""Command-line interface: ftmo-calendar run|auth|status."""
+"""Command-line interface: ftmo-calendar run|auth|status|serve."""
 
 from __future__ import annotations
 
@@ -119,6 +119,18 @@ def _build_sink(config: AppConfig, dry_run: bool):  # noqa: ANN202
     return GoogleCalendarSink(credentials, config.calendar)
 
 
+def _write_feed(config: AppConfig, state: State) -> None:
+    from ftmo_calendar.sinks.ics import write_ics
+
+    write_ics(
+        state,
+        config.resolve(config.ics.path),
+        config.calendar.reminders_minutes,
+        source_url=config.source.url,
+        refresh_minutes=config.serve.sync_interval_minutes,
+    )
+
+
 def _cmd_run(config: AppConfig, dry_run: bool) -> int:
     from ftmo_calendar.parsing.factory import make_backend
     from ftmo_calendar.parsing.llm import EventExtractor
@@ -151,15 +163,7 @@ def _cmd_run(config: AppConfig, dry_run: bool) -> int:
         _notify_run_outcome(config, make_notifiers(config.notify), report, state)
         save_state(state, config.state_path)
         if config.ics.enabled:
-            from ftmo_calendar.sinks.ics import write_ics
-
-            write_ics(
-                state,
-                config.resolve(config.ics.path),
-                config.calendar.reminders_minutes,
-                source_url=config.source.url,
-                refresh_minutes=config.serve.sync_interval_minutes,
-            )
+            _write_feed(config, state)
     print(report.summary())
     return EXIT_OK
 
@@ -187,6 +191,14 @@ def _cmd_serve(config: AppConfig, port_override: int | None) -> int:
 
     # The feed is the point of serve mode — force ICS generation on.
     config = dataclasses.replace(config, ics=dataclasses.replace(config.ics, enabled=True))
+
+    # Serve last-good data immediately: the feed must not 404 after a restart
+    # just because the most recent sync attempt failed.
+    from ftmo_calendar.state import load_state
+
+    existing_state = load_state(config.state_path)
+    if existing_state.posts:
+        _write_feed(config, existing_state)
 
     def sync() -> None:
         _cmd_run(config, dry_run=False)

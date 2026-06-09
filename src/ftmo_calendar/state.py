@@ -51,7 +51,7 @@ def load_state(path: Path) -> State:
     if not path.exists():
         return State()
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8-sig"))
         posts = {
             key: PostState(
                 content_hash=p["content_hash"],

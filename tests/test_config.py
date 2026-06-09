@@ -63,6 +63,13 @@ def test_invalid_provider_rejected(tmp_path: Path) -> None:
         load_config(tmp_path / "config.toml", env={})
 
 
+def test_config_with_utf8_bom_loads(tmp_path: Path) -> None:
+    """Notepad and PowerShell write UTF-8 with a BOM; tomllib alone rejects it."""
+    (tmp_path / "config.toml").write_bytes(b'\xef\xbb\xbf[llm]\nprovider = "gemini"\n')
+    cfg = load_config(tmp_path / "config.toml", env={})
+    assert cfg.llm.provider == "gemini"
+
+
 def test_invalid_timezone_rejected(tmp_path: Path) -> None:
     (tmp_path / "config.toml").write_text('[source]\ntimezone = "Mars/Olympus"\n', encoding="utf-8")
     with pytest.raises(ConfigError, match="timezone"):
