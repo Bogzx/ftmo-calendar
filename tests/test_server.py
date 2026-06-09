@@ -101,6 +101,14 @@ def test_status_page_lists_events(server) -> None:
     assert b"FTMO Platform Maintenance" in body
 
 
+def test_landing_page_has_subscribe_and_countdown(server) -> None:
+    body = get(f"{server[0]}/")[2].decode("utf-8")
+    assert 'id="count"' in body  # countdown element
+    assert 'id="feedurl"' in body  # copyable feed URL
+    assert "GOOGLE CALENDAR" in body and "APPLE CALENDAR" in body and "OUTLOOK" in body
+    assert 'data-iso="2026-06-06T08:00:00+03:00"' in body  # local-tz upgrade hooks
+
+
 def test_unknown_path_404(server) -> None:
     assert get(f"{server[0]}/nope")[0] == 404
 
@@ -169,4 +177,4 @@ def test_healthz_includes_next_run(server) -> None:
 def test_status_page_shows_next_event(server) -> None:
     base, _, _ = server
     body = get(f"{base}/status")[2].decode("utf-8")
-    assert "Next event" in body
+    assert "NEXT TRADING INTERRUPTION" in body

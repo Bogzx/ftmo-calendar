@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.0 — 2026-06-09
+
+A real landing page for hosted deployments.
+
+### Added
+- The served `/` and `/status` page is now a designed, self-contained landing
+  page (trading-terminal aesthetic, no external requests): live countdown to
+  the next interruption, all times rendered in the visitor's local timezone,
+  one-click feed URL copy + `webcal://` open, per-app subscribe instructions,
+  upcoming/in-progress/past schedule, sync health footer
+- Works without JavaScript (UTC times as fallback); responsive down to phones
+
 ## 0.5.0 — 2026-06-09
 
 Deterministic extraction, verified live on DeepSeek via OpenRouter.

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ftmo-calendar"
-version = "0.5.0"
+version = "0.6.0"
 description = "Sync FTMO trading updates (maintenance windows, market closures) to Google Calendar"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -42,6 +42,9 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/ftmo_calendar/web.py" = ["E501"]  # inline HTML/CSS template reads better unwrapped
 
 [tool.mypy]
 python_version = "3.11"

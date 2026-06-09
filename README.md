@@ -50,7 +50,7 @@ subscribe instructions. `/healthz` reports `ok`, `last_run`, `next_run`, and
 `last_error` for uptime monitors. A failing sync never takes the feed down —
 the last good data keeps serving and you get a notification (see below).
 
-![The hosted status page](docs/assets/status-page.png)
+![The hosted landing page — live countdown, one-click subscribe](docs/assets/landing-desktop.png)
 
 For public hosting, put it behind a reverse proxy with HTTPS (Caddy/nginx) —
 the container itself serves plain HTTP.

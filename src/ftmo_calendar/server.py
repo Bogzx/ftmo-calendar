@@ -9,7 +9,6 @@ Endpoints: GET /feed.ics (the calendar), GET /status (HTML), GET /healthz (JSON)
 
 from __future__ import annotations
 
-import html
 import json
 import logging
 import threading
@@ -131,83 +130,14 @@ def make_handler(
                     ics_path.read_bytes(),
                 )
             elif path in ("/", "/status"):
-                self._respond(200, "text/html; charset=utf-8", _status_page(state_path, status))
+                from ftmo_calendar.web import render_page
+
+                body = render_page(load_state(state_path), status.snapshot())
+                self._respond(200, "text/html; charset=utf-8", body)
             else:
                 self._json(404, {"error": "not found"})
 
     return Handler
-
-
-def _next_event_line(state) -> str:  # noqa: ANN001
-    now = datetime.now(UTC)
-    upcoming = []
-    for post in state.posts.values():
-        for event in post.events:
-            if not event.start or not event.summary:
-                continue
-            try:
-                start = datetime.fromisoformat(event.start)
-            except ValueError:
-                continue
-            if start > now:
-                upcoming.append((start, event.summary))
-    if not upcoming:
-        return "none scheduled"
-    start, summary = min(upcoming)
-    return f"{html.escape(summary)} — {start:%a %d %b %H:%M %Z}"
-
-
-def _fmt(iso: str | None) -> str:
-    if not iso:
-        return "–"
-    try:
-        return f"{datetime.fromisoformat(iso):%a %d %b %H:%M %Z}"
-    except ValueError:
-        return iso
-
-
-def _status_page(state_path: Path, status: ServerStatus) -> bytes:
-    snapshot = status.snapshot()
-    state = load_state(state_path)
-    rows = []
-    for post_key, post in sorted(state.posts.items(), reverse=True):
-        for event in post.events:
-            rows.append(
-                f"<tr><td>{html.escape(event.summary or event.event_key)}</td>"
-                f"<td>{html.escape(_fmt(event.start))}</td><td>{html.escape(_fmt(event.end))}</td>"
-                f"<td>{html.escape(post_key)}</td></tr>"
-            )
-    health = "🟢 healthy" if snapshot["ok"] else f"🔴 {html.escape(snapshot['last_error'] or '')}"
-    page = f"""<!doctype html>
-<html><head><meta charset="utf-8"><title>FTMO Trading Calendar</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 \
-viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📅</text></svg>">
-<style>body{{font-family:system-ui,sans-serif;max-width:48rem;margin:2rem auto;padding:0 1rem}}
-table{{border-collapse:collapse;width:100%}}
-td,th{{border:1px solid #ddd;padding:.4rem;text-align:left}}
-code{{background:#f4f4f4;padding:.1rem .3rem}}
-.next{{font-size:1.1rem;background:#fff8e1;border:1px solid #f0d000;
-border-radius:.5rem;padding:.8rem}}</style>
-</head><body>
-<h1>FTMO Trading Calendar</h1>
-<p class="next"><strong>Next event:</strong> {_next_event_line(state)}</p>
-<p>Status: {health}</p>
-<p>Last sync: {html.escape(_fmt(snapshot["last_run"]) if snapshot["last_run"] else "never")} ·
-next: {html.escape(_fmt(snapshot["next_run"]))} ·
-ok: {snapshot["runs_ok"]} · failed: {snapshot["runs_failed"]}</p>
-<h2>Subscribe (free, no account needed)</h2>
-<p>Add this server's feed to your own calendar — it stays in sync automatically:</p>
-<ul>
-<li><strong>Google Calendar:</strong> Other calendars → <em>+</em> → <em>From URL</em> →
-paste <code>https://&lt;this-host&gt;/feed.ics</code></li>
-<li><strong>Apple Calendar:</strong> File → <em>New Calendar Subscription…</em> → paste the URL</li>
-<li><strong>Outlook:</strong> Add calendar → <em>Subscribe from web</em> → paste the URL</li>
-</ul>
-<h2>Tracked events</h2>
-<table><tr><th>Event</th><th>Start</th><th>End</th><th>Source post</th></tr>
-{"".join(rows) or '<tr><td colspan="4">none yet</td></tr>'}
-</table></body></html>"""
-    return page.encode("utf-8")
 
 
 def serve_forever(
