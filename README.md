@@ -53,7 +53,9 @@ the last good data keeps serving and you get a notification (see below).
 ![The hosted landing page — live countdown, one-click subscribe](docs/assets/landing-desktop.png)
 
 For public hosting, put it behind a reverse proxy with HTTPS (Caddy/nginx) —
-the container itself serves plain HTTP.
+the container itself serves plain HTTP. A complete VPS walkthrough (Cloudflare
+DNS, Docker, Caddy with automatic HTTPS) is in
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## How it works
 
