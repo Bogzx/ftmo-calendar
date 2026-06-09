@@ -59,6 +59,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     subparsers.add_parser("status", help="show tracked posts and events from the last runs")
+
+    serve_parser = subparsers.add_parser(
+        "serve", help="run periodic syncs and host the ICS feed + status page over HTTP"
+    )
+    serve_parser.add_argument("--port", type=int, default=None, help="override [serve] port")
     return parser
 
 
@@ -146,6 +151,26 @@ def _cmd_auth(config: AppConfig, check: bool) -> int:
     return EXIT_OK
 
 
+def _cmd_serve(config: AppConfig, port_override: int | None) -> int:
+    import dataclasses
+
+    from ftmo_calendar.server import serve_forever
+
+    # The feed is the point of serve mode — force ICS generation on.
+    config = dataclasses.replace(
+        config, ics=dataclasses.replace(config.ics, enabled=True)
+    )
+    return serve_forever(
+        host=config.serve.host,
+        port=port_override or config.serve.port,
+        interval_seconds=config.serve.sync_interval_minutes * 60,
+        ics_path=config.resolve(config.ics.path),
+        state_path=config.state_path,
+        sync_fn=lambda: _cmd_run(config, dry_run=False),
+        on_error=lambda e: _notify_failure(config, "run", e),
+    )
+
+
 def _cmd_status(config: AppConfig) -> int:
     from ftmo_calendar.state import load_state
 
@@ -191,6 +216,8 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_run(config, dry_run=getattr(args, "dry_run", False))
         if command == "auth":
             return _cmd_auth(config, check=args.check)
+        if command == "serve":
+            return _cmd_serve(config, port_override=args.port)
         return _cmd_status(config)
     except (AuthError, ConfigError) as e:
         logger.error("%s", e)
