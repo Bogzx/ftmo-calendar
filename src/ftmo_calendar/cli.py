@@ -205,6 +205,18 @@ def _cmd_serve(config: AppConfig, port_override: int | None) -> int:
     def sync() -> None:
         _cmd_run(config, dry_run=False)
 
+    def feed_renderer(types: frozenset[str]) -> bytes:
+        from ftmo_calendar.sinks.ics import render_ics
+        from ftmo_calendar.state import load_state
+
+        return render_ics(
+            load_state(config.state_path),
+            config.calendar.reminders_minutes,
+            source_url=config.source.url,
+            refresh_minutes=config.serve.sync_interval_minutes,
+            types=types,
+        ).encode("utf-8")
+
     return serve_forever(
         host=config.serve.host,
         port=port_override or config.serve.port,
@@ -213,6 +225,7 @@ def _cmd_serve(config: AppConfig, port_override: int | None) -> int:
         state_path=config.state_path,
         sync_fn=sync,
         on_error=lambda e: _notify_failure(config, "run", e),
+        feed_renderer=feed_renderer,
     )
 
 

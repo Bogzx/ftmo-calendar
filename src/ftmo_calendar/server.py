@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 from ftmo_calendar.state import load_state
 
@@ -100,8 +101,15 @@ def run_sync_loop(
 
 
 def make_handler(
-    ics_path: Path, state_path: Path, status: ServerStatus
+    ics_path: Path,
+    state_path: Path,
+    status: ServerStatus,
+    feed_renderer: Callable[[frozenset[str]], bytes] | None = None,
 ) -> type[BaseHTTPRequestHandler]:
+    from ftmo_calendar.models import EventType
+
+    valid_types = {t.value for t in EventType}
+
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, format: str, *args) -> None:  # noqa: A002 - stdlib signature
             logger.debug("http: " + format, *args)
@@ -116,19 +124,34 @@ def make_handler(
         def _json(self, code: int, payload: dict) -> None:
             self._respond(code, "application/json; charset=utf-8", json.dumps(payload).encode())
 
+        def _serve_feed(self) -> None:
+            query = parse_qs(urlparse(self.path).query)
+            types_param = query.get("types", [""])[0]
+            if types_param and feed_renderer is not None:
+                requested = frozenset(t.strip() for t in types_param.split(",") if t.strip())
+                unknown = requested - valid_types
+                if unknown or not requested:
+                    self._json(
+                        400,
+                        {
+                            "error": f"unknown types: {sorted(unknown)}",
+                            "valid": sorted(valid_types),
+                        },
+                    )
+                    return
+                self._respond(200, "text/calendar; charset=utf-8", feed_renderer(requested))
+                return
+            if not ics_path.exists():
+                self._json(404, {"error": "feed not generated yet"})
+                return
+            self._respond(200, "text/calendar; charset=utf-8", ics_path.read_bytes())
+
         def do_GET(self) -> None:  # noqa: N802 - stdlib naming
             path = self.path.split("?", 1)[0]
             if path == "/healthz":
                 self._json(200, status.snapshot())
             elif path == "/feed.ics":
-                if not ics_path.exists():
-                    self._json(404, {"error": "feed not generated yet"})
-                    return
-                self._respond(
-                    200,
-                    "text/calendar; charset=utf-8",
-                    ics_path.read_bytes(),
-                )
+                self._serve_feed()
             elif path in ("/", "/status"):
                 from ftmo_calendar.web import render_page
 
@@ -148,6 +171,7 @@ def serve_forever(
     state_path: Path,
     sync_fn: Callable[[], None],
     on_error: Callable[[BaseException], None] | None = None,
+    feed_renderer: Callable[[frozenset[str]], bytes] | None = None,
 ) -> int:
     status = ServerStatus(
         started_at=datetime.now(UTC).isoformat(), interval_seconds=interval_seconds
@@ -160,7 +184,9 @@ def serve_forever(
         name="sync-loop",
     )
     loop_thread.start()
-    httpd = ThreadingHTTPServer((host, port), make_handler(ics_path, state_path, status))
+    httpd = ThreadingHTTPServer(
+        (host, port), make_handler(ics_path, state_path, status, feed_renderer)
+    )
     logger.info(
         "Serving on http://%s:%d (feed: /feed.ics, status: /status); sync every %.0f min",
         host,

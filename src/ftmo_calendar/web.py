@@ -145,6 +145,13 @@ button, .btn {{
 }}
 button:hover, .btn:hover {{ filter:brightness(1.15); }}
 .btn.ghost {{ background:none; color:var(--amber); }}
+.filters {{ display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; align-items:center; }}
+.filters .hint {{ font-family:var(--serif); font-style:italic; color:var(--faint); font-size:12.5px; margin-right:6px; }}
+.filters label {{ border:1px solid var(--line); background:var(--panel); padding:7px 12px;
+  font-size:11px; letter-spacing:.12em; color:var(--dim); cursor:pointer;
+  display:flex; gap:7px; align-items:center; user-select:none; transition:color .15s,border-color .15s; }}
+.filters label:has(input:checked) {{ color:var(--amber); border-color:var(--amber-dim); }}
+.filters input {{ accent-color:var(--amber); margin:0; }}
 .apps {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; margin-top:14px; }}
 .app {{ border:1px solid var(--line-soft); background:var(--panel); padding:14px 16px; font-size:12.5px; line-height:1.65; }}
 .app b {{ color:var(--txt); display:block; margin-bottom:4px; letter-spacing:.08em; }}
@@ -204,6 +211,13 @@ footer a:hover {{ color:var(--amber); }}
     <button id="copybtn" type="button">COPY URL</button>
     <a id="webcal" class="btn ghost" href="/feed.ics">OPEN IN CALENDAR APP</a>
   </div>
+  <div class="filters">
+    <span class="hint">Only care about some of it? Untick — the URL updates:</span>
+    <label><input type="checkbox" data-type="maintenance" checked> MAINTENANCE</label>
+    <label><input type="checkbox" data-type="crypto_closure" checked> CRYPTO</label>
+    <label><input type="checkbox" data-type="holiday_hours" checked> HOLIDAY HOURS</label>
+    <label><input type="checkbox" data-type="other" checked> OTHER</label>
+  </div>
   <div class="apps">
     <div class="app"><b>GOOGLE CALENDAR</b>
       <span>Other calendars → + → From URL → paste the feed URL. Appears on your phone automatically.</span></div>
@@ -233,13 +247,25 @@ footer a:hover {{ color:var(--amber); }}
 
 </div><script>
 (function () {{
-  var feed = location.origin + "/feed.ics";
   var urlEl = document.getElementById("feedurl");
-  urlEl.value = feed;
-  document.getElementById("webcal").href = "webcal://" + location.host + "/feed.ics";
+  var webcalEl = document.getElementById("webcal");
+  var boxes = [].slice.call(document.querySelectorAll(".filters input"));
+  function feedQuery() {{
+    var checked = boxes.filter(function (b) {{ return b.checked; }})
+                       .map(function (b) {{ return b.getAttribute("data-type"); }});
+    return (checked.length && checked.length < boxes.length)
+      ? "?types=" + checked.join(",") : "";
+  }}
+  function refreshUrls() {{
+    var qs = feedQuery();
+    urlEl.value = location.origin + "/feed.ics" + qs;
+    webcalEl.href = "webcal://" + location.host + "/feed.ics" + qs;
+  }}
+  boxes.forEach(function (b) {{ b.addEventListener("change", refreshUrls); }});
+  refreshUrls();
   document.getElementById("copybtn").addEventListener("click", function () {{
-    var btn = this;
-    (navigator.clipboard ? navigator.clipboard.writeText(feed)
+    var btn = this, value = urlEl.value;
+    (navigator.clipboard ? navigator.clipboard.writeText(value)
       : Promise.reject()).catch(function () {{ urlEl.select(); document.execCommand("copy"); }})
       .then(function () {{
         btn.textContent = "COPIED ✓";

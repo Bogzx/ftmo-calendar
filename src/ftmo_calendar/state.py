@@ -10,7 +10,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-STATE_VERSION = 2
+STATE_VERSION = 3
 _PRUNE_AFTER_DAYS = 45
 
 
@@ -21,6 +21,7 @@ class TrackedEvent:
     end: str  # ISO 8601, timezone-aware
     summary: str = ""  # display data for ICS export (v2)
     start: str = ""  # ISO 8601, timezone-aware (v2)
+    event_type: str = ""  # EventType value, used for filtered feeds (v3)
 
 
 @dataclass
@@ -63,6 +64,7 @@ def load_state(path: Path) -> State:
                         end=e["end"],
                         summary=e.get("summary", ""),
                         start=e.get("start", ""),
+                        event_type=e.get("event_type", ""),
                     )
                     for e in p.get("events", [])
                 ],

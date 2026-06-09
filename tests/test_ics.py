@@ -20,6 +20,7 @@ def make_state() -> State:
                         end="2026-06-06T14:00:00+03:00",
                         summary="⚠️ FTMO Platform Maintenance",
                         start="2026-06-06T08:00:00+03:00",
+                        event_type="maintenance",
                     ),
                     # v1-era event without display data — must be skipped
                     TrackedEvent(
@@ -85,3 +86,43 @@ def test_description_with_source_url() -> None:
     ics = render_ics(make_state(), (), source_url="https://ftmo.com/en/trading-updates/", now=NOW)
     assert "DESCRIPTION:Source: https://ftmo.com/en/trading-updates/" in ics
     assert "AutoFtmoCalendar" in ics
+
+
+def crypto_event() -> TrackedEvent:
+    return TrackedEvent(
+        event_key="cr1",
+        google_event_id="g3",
+        end="2026-06-07T12:00:00+03:00",
+        summary="🚫 Crypto Market Closed",
+        start="2026-06-07T10:00:00+03:00",
+        event_type="crypto_closure",
+    )
+
+
+def test_types_filter_includes_only_matching_events() -> None:
+    state = make_state()
+    state.posts["p1"].events.append(crypto_event())
+    ics = render_ics(state, (), types=frozenset({"crypto_closure"}), now=NOW)
+    assert ics.count("BEGIN:VEVENT") == 1
+    assert "Crypto Market Closed" in ics
+    assert "Platform Maintenance" not in ics
+
+
+def test_no_types_filter_includes_everything() -> None:
+    state = make_state()
+    state.posts["p1"].events.append(crypto_event())
+    ics = render_ics(state, (), now=NOW)
+    assert ics.count("BEGIN:VEVENT") == 2
+
+
+def test_typeless_legacy_events_appear_only_unfiltered() -> None:
+    state = make_state()
+    state.posts["p1"].events[0].event_type = ""  # pre-v3 entry
+    assert render_ics(state, (), now=NOW).count("BEGIN:VEVENT") == 1
+    filtered = render_ics(state, (), types=frozenset({"maintenance"}), now=NOW)
+    assert filtered.count("BEGIN:VEVENT") == 0
+
+
+def test_filtered_calendar_is_named_after_filter() -> None:
+    ics = render_ics(make_state(), (), types=frozenset({"maintenance"}), now=NOW)
+    assert "X-WR-CALNAME:FTMO Trading Updates (maintenance)" in ics

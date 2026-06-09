@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.7.0 — 2026-06-10
+
+Per-interest feeds: subscribe to only what you trade.
+
+### Added
+- Type-filtered feeds in serve mode: `/feed.ics?types=crypto_closure` (any
+  comma-separated combination of `maintenance`, `crypto_closure`,
+  `holiday_hours`, `other`); each URL acts as its own calendar; unknown types
+  return a 400 listing valid ones; filtered calendars are named after their
+  filter
+- Landing page filter chips: untick event types and the subscribe URL (and
+  webcal link) rebuild live
+- Tracked events store their event type (state v3; older state files load
+  transparently — pre-v3 events appear only in the unfiltered feed until they
+  regenerate)
+
 ## 0.6.0 — 2026-06-09
 
 A real landing page for hosted deployments.

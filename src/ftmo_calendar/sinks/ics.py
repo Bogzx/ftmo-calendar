@@ -32,16 +32,21 @@ def render_ics(
     *,
     source_url: str = "",
     refresh_minutes: int = 0,
+    types: frozenset[str] | None = None,
     now: datetime | None = None,
 ) -> str:
+    """Render the feed; `types` (EventType values) limits it to those kinds of events."""
     now = now or datetime.now(UTC)
     dtstamp = now.astimezone(UTC).strftime("%Y%m%dT%H%M%SZ")
+    name = "FTMO Trading Updates"
+    if types is not None:
+        name += f" ({', '.join(sorted(types))})"
     lines = [
         "BEGIN:VCALENDAR",
         "VERSION:2.0",
         f"PRODID:{_PRODID}",
         "CALSCALE:GREGORIAN",
-        "X-WR-CALNAME:FTMO Trading Updates",
+        f"X-WR-CALNAME:{_escape(name)}",
     ]
     if refresh_minutes > 0:
         # Hint calendar apps how often to re-poll the subscribed feed.
@@ -53,6 +58,8 @@ def render_ics(
         for event in post.events:
             if not event.summary or not event.start:
                 continue  # pre-v2 state entry without display data
+            if types is not None and event.event_type not in types:
+                continue
             lines += [
                 "BEGIN:VEVENT",
                 f"UID:{event.event_key}@ftmo-calendar",

@@ -27,7 +27,16 @@ def make_state() -> State:
                         end="2026-06-06T14:00:00+03:00",
                         summary="FTMO Platform Maintenance",
                         start="2026-06-06T08:00:00+03:00",
-                    )
+                        event_type="maintenance",
+                    ),
+                    TrackedEvent(
+                        event_key="cr1",
+                        google_event_id="g2",
+                        end="2026-06-07T12:00:00+03:00",
+                        summary="Crypto Market Closed",
+                        start="2026-06-07T10:00:00+03:00",
+                        event_type="crypto_closure",
+                    ),
                 ],
             )
         }
@@ -43,7 +52,16 @@ def server(tmp_path: Path):
     write_ics(state, ics_path, (60,), now=NOW)
 
     status = ServerStatus(started_at=NOW.isoformat(), interval_seconds=3600)
-    handler = make_handler(ics_path=ics_path, state_path=state_path, status=status)
+
+    def feed_renderer(types: frozenset[str]) -> bytes:
+        from ftmo_calendar.sinks.ics import render_ics
+        from ftmo_calendar.state import load_state
+
+        return render_ics(load_state(state_path), (60,), types=types, now=NOW).encode("utf-8")
+
+    handler = make_handler(
+        ics_path=ics_path, state_path=state_path, status=status, feed_renderer=feed_renderer
+    )
     httpd = ThreadingHTTPServer(("127.0.0.1", 0), handler)
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
@@ -87,6 +105,25 @@ def test_feed_served_as_calendar(server) -> None:
     assert b"BEGIN:VCALENDAR" in body
 
 
+def test_feed_filtered_by_type(server) -> None:
+    base, _, _ = server
+    code, ctype, body = get(f"{base}/feed.ics?types=crypto_closure")
+    assert code == 200 and "text/calendar" in ctype
+    assert b"Crypto Market Closed" in body
+    assert b"Platform Maintenance" not in body
+
+
+def test_feed_filter_combines_types(server) -> None:
+    body = get(f"{server[0]}/feed.ics?types=crypto_closure,maintenance")[2]
+    assert b"Crypto Market Closed" in body and b"FTMO Platform Maintenance" in body
+
+
+def test_feed_unknown_type_is_400(server) -> None:
+    code, _, body = get(f"{server[0]}/feed.ics?types=bogus")
+    assert code == 400
+    assert b"crypto_closure" in body  # the error lists valid types
+
+
 def test_feed_404_when_missing(server) -> None:
     base, _, ics_path = server
     ics_path.unlink()
@@ -107,6 +144,7 @@ def test_landing_page_has_subscribe_and_countdown(server) -> None:
     assert 'id="feedurl"' in body  # copyable feed URL
     assert "GOOGLE CALENDAR" in body and "APPLE CALENDAR" in body and "OUTLOOK" in body
     assert 'data-iso="2026-06-06T08:00:00+03:00"' in body  # local-tz upgrade hooks
+    assert 'data-type="crypto_closure"' in body  # feed filter chips
 
 
 def test_unknown_path_404(server) -> None:

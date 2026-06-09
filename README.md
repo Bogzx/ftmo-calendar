@@ -195,6 +195,19 @@ Serve mode keeps the feed available from the moment it starts (last good data,
 even if the newest sync attempt fails) and notifies a given error only once —
 not every interval — until it changes or resolves.
 
+**Per-interest feeds:** subscribers who only care about some event types can
+filter with a query parameter — each distinct URL behaves as its own calendar:
+
+```
+/feed.ics                                   # everything
+/feed.ics?types=crypto_closure              # crypto closures only
+/feed.ics?types=maintenance,holiday_hours   # any combination
+```
+
+Valid types: `maintenance`, `crypto_closure`, `holiday_hours`, `other`. The
+landing page has checkboxes that build the URL for you; unknown types return
+a 400 listing the valid ones.
+
 ## Scheduling
 
 Exit codes: `0` success, `1` runtime error, `2` configuration/auth error — so your
