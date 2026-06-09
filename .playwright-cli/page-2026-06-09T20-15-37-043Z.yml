@@ -1,0 +1,51 @@
+- generic [active] [ref=e1]:
+  - heading "FTMO Trading Calendar" [level=1] [ref=e2]
+  - paragraph [ref=e3]:
+    - strong [ref=e4]: "Next event:"
+    - text: ⚠️ FTMO Platform Maintenance — Sat 13 Jun 08:00 UTC+03:00
+  - paragraph [ref=e5]: "Status: 🟢 healthy"
+  - paragraph [ref=e6]: "Last sync: Tue 09 Jun 20:15 UTC · next: Wed 10 Jun 02:15 UTC · ok: 1 · failed: 0"
+  - heading "Subscribe (free, no account needed)" [level=2] [ref=e7]
+  - paragraph [ref=e8]: "Add this server's feed to your own calendar — it stays in sync automatically:"
+  - list [ref=e9]:
+    - listitem [ref=e10]:
+      - strong [ref=e11]: "Google Calendar:"
+      - text: Other calendars →
+      - emphasis [ref=e12]: +
+      - text: →
+      - emphasis [ref=e13]: From URL
+      - text: → paste
+      - code [ref=e14]: https://<this-host>/feed.ics
+    - listitem [ref=e15]:
+      - strong [ref=e16]: "Apple Calendar:"
+      - text: File →
+      - emphasis [ref=e17]: New Calendar Subscription…
+      - text: → paste the URL
+    - listitem [ref=e18]:
+      - strong [ref=e19]: "Outlook:"
+      - text: Add calendar →
+      - emphasis [ref=e20]: Subscribe from web
+      - text: → paste the URL
+  - heading "Tracked events" [level=2] [ref=e21]
+  - table [ref=e22]:
+    - rowgroup [ref=e23]:
+      - row "Event Start End Source post" [ref=e24]:
+        - columnheader "Event" [ref=e25]
+        - columnheader "Start" [ref=e26]
+        - columnheader "End" [ref=e27]
+        - columnheader "Source post" [ref=e28]
+      - row "⚠️ FTMO Platform Maintenance Sat 13 Jun 08:00 UTC+03:00 Sat 13 Jun 14:00 UTC+03:00 trading-update-2026-06-11" [ref=e29]:
+        - cell "⚠️ FTMO Platform Maintenance" [ref=e30]
+        - cell "Sat 13 Jun 08:00 UTC+03:00" [ref=e31]
+        - cell "Sat 13 Jun 14:00 UTC+03:00" [ref=e32]
+        - cell "trading-update-2026-06-11" [ref=e33]
+      - row "⚠️ FTMO Platform Maintenance Sat 13 Jun 14:00 UTC+03:00 Sat 13 Jun 22:00 UTC+03:00 trading-update-2026-06-11" [ref=e34]:
+        - cell "⚠️ FTMO Platform Maintenance" [ref=e35]
+        - cell "Sat 13 Jun 14:00 UTC+03:00" [ref=e36]
+        - cell "Sat 13 Jun 22:00 UTC+03:00" [ref=e37]
+        - cell "trading-update-2026-06-11" [ref=e38]
+      - row "🕒 Modified Trading Hours Mon 15 Jun 00:00 UTC+03:00 Mon 15 Jun 23:59 UTC+03:00 trading-update-2026-06-11" [ref=e39]:
+        - cell "🕒 Modified Trading Hours" [ref=e40]
+        - cell "Mon 15 Jun 00:00 UTC+03:00" [ref=e41]
+        - cell "Mon 15 Jun 23:59 UTC+03:00" [ref=e42]
+        - cell "trading-update-2026-06-11" [ref=e43]

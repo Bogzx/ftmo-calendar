@@ -1,0 +1,43 @@
+name: Bug report
+description: Something broke — a failed sync, wrong event times, a crash
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `ftmo-calendar --version`
+      placeholder: ftmo-calendar 0.4.0
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: How are you running it?
+      options:
+        - Google Calendar sync (oauth)
+        - Google Calendar sync (service account)
+        - Feed-only / serve mode
+        - Docker
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: >-
+        Relevant output (run with `-v` for debug logging). Remove API keys and
+        webhook URLs before pasting.
+      render: text
+  - type: input
+    id: llm
+    attributes:
+      label: LLM provider and model
+      placeholder: e.g. openai-compatible / openrouter / deepseek/deepseek-v4-flash

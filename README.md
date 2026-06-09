@@ -3,7 +3,9 @@
 > Never get caught by an FTMO maintenance window again.
 
 [![CI](https://github.com/Bogzx/AutoFtmoCalendar/actions/workflows/ci.yml/badge.svg)](https://github.com/Bogzx/AutoFtmoCalendar/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Bogzx/AutoFtmoCalendar)](https://github.com/Bogzx/AutoFtmoCalendar/releases)
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
+![Docker](https://img.shields.io/badge/docker-compose%20ready-2496ED?logo=docker&logoColor=white)
 ![License](https://img.shields.io/github/license/Bogzx/AutoFtmoCalendar)
 
 AutoFtmoCalendar watches [FTMO's trading updates page](https://ftmo.com/en/trading-updates/),
@@ -47,6 +49,8 @@ That's it. Your group subscribes to `http://your-vps:8080/feed.ics`, and
 subscribe instructions. `/healthz` reports `ok`, `last_run`, `next_run`, and
 `last_error` for uptime monitors. A failing sync never takes the feed down —
 the last good data keeps serving and you get a notification (see below).
+
+![The hosted status page](docs/assets/status-page.png)
 
 For public hosting, put it behind a reverse proxy with HTTPS (Caddy/nginx) —
 the container itself serves plain HTTP.

@@ -157,6 +157,15 @@ def _next_event_line(state) -> str:  # noqa: ANN001
     return f"{html.escape(summary)} — {start:%a %d %b %H:%M %Z}"
 
 
+def _fmt(iso: str | None) -> str:
+    if not iso:
+        return "–"
+    try:
+        return f"{datetime.fromisoformat(iso):%a %d %b %H:%M %Z}"
+    except ValueError:
+        return iso
+
+
 def _status_page(state_path: Path, status: ServerStatus) -> bytes:
     snapshot = status.snapshot()
     state = load_state(state_path)
@@ -165,12 +174,14 @@ def _status_page(state_path: Path, status: ServerStatus) -> bytes:
         for event in post.events:
             rows.append(
                 f"<tr><td>{html.escape(event.summary or event.event_key)}</td>"
-                f"<td>{html.escape(event.start)}</td><td>{html.escape(event.end)}</td>"
+                f"<td>{html.escape(_fmt(event.start))}</td><td>{html.escape(_fmt(event.end))}</td>"
                 f"<td>{html.escape(post_key)}</td></tr>"
             )
     health = "🟢 healthy" if snapshot["ok"] else f"🔴 {html.escape(snapshot['last_error'] or '')}"
     page = f"""<!doctype html>
 <html><head><meta charset="utf-8"><title>FTMO Trading Calendar</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 \
+viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📅</text></svg>">
 <style>body{{font-family:system-ui,sans-serif;max-width:48rem;margin:2rem auto;padding:0 1rem}}
 table{{border-collapse:collapse;width:100%}}
 td,th{{border:1px solid #ddd;padding:.4rem;text-align:left}}
@@ -181,8 +192,8 @@ border-radius:.5rem;padding:.8rem}}</style>
 <h1>FTMO Trading Calendar</h1>
 <p class="next"><strong>Next event:</strong> {_next_event_line(state)}</p>
 <p>Status: {health}</p>
-<p>Last sync: {html.escape(snapshot["last_run"] or "never")} ·
-next: {html.escape(snapshot["next_run"] or "–")} ·
+<p>Last sync: {html.escape(_fmt(snapshot["last_run"]) if snapshot["last_run"] else "never")} ·
+next: {html.escape(_fmt(snapshot["next_run"]))} ·
 ok: {snapshot["runs_ok"]} · failed: {snapshot["runs_failed"]}</p>
 <h2>Subscribe (free, no account needed)</h2>
 <p>Add this server's feed to your own calendar — it stays in sync automatically:</p>

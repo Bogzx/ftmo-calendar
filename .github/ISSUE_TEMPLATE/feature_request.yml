@@ -1,0 +1,30 @@
+name: Feature request
+description: An idea that would make the tool more useful
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the situation where you miss this feature.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: What would you like to happen?
+    validations:
+      required: true
+  - type: dropdown
+    id: source
+    attributes:
+      label: Is this about supporting another prop firm / data source?
+      description: Source support is demand-driven — telling us which firm helps prioritize.
+      options:
+        - "No"
+        - "Yes (name it below)"
+  - type: input
+    id: firm
+    attributes:
+      label: Firm / source URL
+      placeholder: e.g. https://example-propfirm.com/announcements
