@@ -11,7 +11,7 @@ Two modes:
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from google.auth.exceptions import GoogleAuthError, RefreshError
@@ -127,10 +127,10 @@ def describe_credentials(cfg: CalendarConfig, base_dir: Path) -> str:
         creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
     except ValueError:
         return f"oauth: token at {token_path} is CORRUPT — run `ftmo-calendar auth`"
-    expiry = creds.expiry.replace(tzinfo=timezone.utc) if creds.expiry else None
+    expiry = creds.expiry.replace(tzinfo=UTC) if creds.expiry else None
     status = "valid" if creds.valid else "expired (will auto-refresh on next run)"
     refresh = "yes" if creds.refresh_token else "NO — re-run `ftmo-calendar auth`"
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expiry_text = (
         f"{expiry.isoformat()} ({'past' if expiry and expiry < now else 'future'})"
         if expiry

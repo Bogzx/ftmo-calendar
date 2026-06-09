@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Protocol
 from zoneinfo import ZoneInfo
 
@@ -57,7 +57,7 @@ def run_pipeline(
     dry_run: bool = False,
     now: datetime | None = None,
 ) -> RunReport:
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     report = RunReport(dry_run=dry_run)
     source_tz = ZoneInfo(config.source.timezone)
     calendar_tz = ZoneInfo(config.calendar.timezone)

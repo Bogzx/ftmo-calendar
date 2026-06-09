@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from ftmo_calendar.models import EventType, SourcePost, TradingEvent
 
@@ -8,8 +8,8 @@ def make_event(**overrides) -> TradingEvent:
         event_type=EventType.MAINTENANCE,
         summary="Maintenance",
         description="desc",
-        start=datetime(2026, 6, 6, 8, 0, tzinfo=timezone.utc),
-        end=datetime(2026, 6, 6, 14, 0, tzinfo=timezone.utc),
+        start=datetime(2026, 6, 6, 8, 0, tzinfo=UTC),
+        end=datetime(2026, 6, 6, 14, 0, tzinfo=UTC),
         source_post_key="trading-update-2026-06-04",
         source_url="https://example.com/post",
     )
@@ -22,7 +22,7 @@ def test_event_key_is_deterministic() -> None:
 
 
 def test_event_key_changes_with_times() -> None:
-    other = make_event(end=datetime(2026, 6, 6, 22, 0, tzinfo=timezone.utc))
+    other = make_event(end=datetime(2026, 6, 6, 22, 0, tzinfo=UTC))
     assert make_event().event_key != other.event_key
 
 

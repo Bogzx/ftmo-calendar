@@ -147,15 +147,14 @@ class FtmoSource:
         links: list[str] = []
         for card in soup.select("article.post-card"):
             a = card.find("a", href=True)
-            if a and "/blog/trading-updates/" in a["href"] and a["href"] not in links:
-                links.append(a["href"])
+            href = str(a["href"]) if a else ""
+            if "/blog/trading-updates/" in href and href not in links:
+                links.append(href)
         return embedded, links
 
     def parse_post(self, html: str, url: str) -> SourcePost:
         soup = BeautifulSoup(html, "html.parser")
-        content = soup.select_one("div.content.tu") or soup.select_one(
-            "article, div.entry-content"
-        )
+        content = soup.select_one("div.content.tu") or soup.select_one("article, div.entry-content")
         if content is None:
             raise ScrapeError(f"no content container found at {url}")
         title_node = soup.find("h1")

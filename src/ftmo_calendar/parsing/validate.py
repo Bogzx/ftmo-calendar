@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from ftmo_calendar.config import EventRules
@@ -48,7 +48,7 @@ def validate_events(
     calendar_tz: ZoneInfo,
     now: datetime | None = None,
 ) -> tuple[list[TradingEvent], list[Rejection]]:
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     events: list[TradingEvent] = []
     rejections: list[Rejection] = []
 

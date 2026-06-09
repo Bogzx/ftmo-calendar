@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
 from ftmo_calendar.config import EventRules
@@ -7,7 +7,7 @@ from ftmo_calendar.parsing.llm import RawEvent
 from ftmo_calendar.parsing.validate import validate_events
 
 TZ = ZoneInfo("Europe/Bucharest")
-NOW = datetime(2026, 6, 1, 12, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 6, 1, 12, 0, tzinfo=UTC)
 POST = SourcePost(
     post_key="trading-update-2026-06-04",
     title="Trading Update | Jun 4 2026",

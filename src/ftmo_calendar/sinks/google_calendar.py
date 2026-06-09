@@ -84,7 +84,9 @@ class GoogleCalendarSink:
     def create_event(self, event: TradingEvent) -> str:
         body = build_event_body(event, self._cfg.timezone, self._cfg.reminders_minutes)
         try:
-            created = self._service.events().insert(calendarId=self.calendar_id, body=body).execute()
+            created = (
+                self._service.events().insert(calendarId=self.calendar_id, body=body).execute()
+            )
         except HttpError as e:
             raise CalendarSinkError(f"event creation failed: {e}") from e
         logger.info("Created event: %s", created.get("htmlLink", created.get("id")))

@@ -5,10 +5,10 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 
 
-class EventType(str, Enum):
+class EventType(StrEnum):
     MAINTENANCE = "maintenance"
     CRYPTO_CLOSURE = "crypto_closure"
     HOLIDAY_HOURS = "holiday_hours"

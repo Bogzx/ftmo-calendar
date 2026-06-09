@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from ftmo_calendar.config import AppConfig, CalendarConfig, EventRules, LLMConfig, SourceConfig
@@ -7,7 +7,7 @@ from ftmo_calendar.parsing.llm import RawEvent
 from ftmo_calendar.pipeline import run_pipeline
 from ftmo_calendar.state import PostState, State, TrackedEvent
 
-NOW = datetime(2026, 6, 1, 12, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 6, 1, 12, 0, tzinfo=UTC)
 
 POST = SourcePost(
     post_key="trading-update-2026-06-04",

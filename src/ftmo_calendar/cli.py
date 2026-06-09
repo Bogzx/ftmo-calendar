@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import logging
 import sys
 from pathlib import Path
@@ -117,9 +118,7 @@ def _cmd_status(config: AppConfig) -> int:
     for key, post in sorted(state.posts.items(), reverse=True):
         print(f"  {key}  last seen {post.last_seen}  events: {len(post.events)}")
         for event in post.events:
-            print(
-                f"    - {event.event_key}  ends {event.end}  (google id {event.google_event_id})"
-            )
+            print(f"    - {event.event_key}  ends {event.end}  (google id {event.google_event_id})")
     return EXIT_OK
 
 
@@ -127,10 +126,8 @@ def _force_utf8_streams() -> None:
     """Event summaries contain emoji; Windows pipes default to cp1252 and would crash."""
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
-            try:
+            with contextlib.suppress(ValueError, OSError):
                 stream.reconfigure(encoding="utf-8")
-            except (ValueError, OSError):  # pragma: no cover - exotic streams
-                pass
 
 
 def main(argv: list[str] | None = None) -> int:

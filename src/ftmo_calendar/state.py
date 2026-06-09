@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ class State:
 
     def prune(self, now: datetime | None = None) -> None:
         """Drop posts not seen recently whose events have all ended."""
-        now = now or datetime.now(timezone.utc)
+        now = now or datetime.now(UTC)
         cutoff = now - timedelta(days=_PRUNE_AFTER_DAYS)
         for key in list(self.posts):
             post = self.posts[key]
