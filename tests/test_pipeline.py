@@ -86,6 +86,9 @@ def test_new_post_creates_events_and_updates_state(tmp_path: Path) -> None:
     tracked = state.posts[POST.post_key]
     assert tracked.content_hash == POST.content_hash
     assert tracked.events[0].google_event_id == "gid1"
+    # v2: display data captured for ICS export
+    assert tracked.events[0].summary == sink.created[0].summary
+    assert tracked.events[0].start == "2026-06-06T08:00:00+03:00"
 
 
 def test_unchanged_post_skips_llm(tmp_path: Path) -> None:

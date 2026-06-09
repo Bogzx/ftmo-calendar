@@ -98,6 +98,16 @@ def run_pipeline(
     return report
 
 
+def _track(event: TradingEvent, backend_id: str) -> TrackedEvent:
+    return TrackedEvent(
+        event_key=event.event_key,
+        google_event_id=backend_id,
+        end=event.end.isoformat(),
+        summary=event.summary,
+        start=event.start.isoformat(),
+    )
+
+
 def _is_relevant(post: SourcePost, keywords: tuple[str, ...]) -> bool:
     text = post.text.lower()
     return any(k.strip().lower() in text for k in keywords if k.strip())
@@ -139,11 +149,11 @@ def _reconcile(
         existing_id = sink.find_event_id_by_key(event.event_key)
         if existing_id:
             logger.info("Event %s already in calendar; adopting it", event.event_key)
-            tracked.append(TrackedEvent(event.event_key, existing_id, event.end.isoformat()))
+            tracked.append(_track(event, existing_id))
             report.events_kept += 1
             continue
         google_id = sink.create_event(event)
-        tracked.append(TrackedEvent(event.event_key, google_id, event.end.isoformat()))
+        tracked.append(_track(event, google_id))
         report.events_created += 1
 
     return PostState(content_hash=post.content_hash, last_seen=now.isoformat(), events=tracked)
