@@ -121,12 +121,56 @@ HTTPS story.
 Subscribe from your own Google Calendar (*Other calendars → + → From URL*) and
 share the `/status` page with your group.
 
-## 6. Operating it
+## 6. Auto-deploy from GitHub (optional)
+
+Make the server follow `main` automatically: a systemd timer polls GitHub
+every 5 minutes and rebuilds only when there are new commits, using the
+repo's own `scripts/autodeploy.sh`.
+
+```bash
+sudo usermod -aG docker $USER   # docker without sudo for the deploy user
+
+sudo tee /etc/systemd/system/ftmo-autodeploy.service >/dev/null <<EOF
+[Unit]
+Description=Auto-deploy ftmo-calendar from GitHub main
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=$USER
+Group=docker
+ExecStart=$HOME/ftmo-calendar/scripts/autodeploy.sh
+EOF
+
+sudo tee /etc/systemd/system/ftmo-autodeploy.timer >/dev/null <<'EOF'
+[Unit]
+Description=Poll GitHub for ftmo-calendar updates every 5 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+RandomizedDelaySec=30
+
+[Install]
+WantedBy=timers.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now ftmo-autodeploy.timer
+```
+
+Watch deploys with `journalctl -u ftmo-autodeploy.service -f`. Note this
+deploys whatever lands on `main` regardless of CI status — fine for a
+single-maintainer repo; use a GitHub-Actions-over-SSH deploy instead if you
+want CI-gated deploys.
+
+## 7. Operating it
 
 | Task | Command |
 | --- | --- |
 | Logs | `sudo docker compose logs -f` |
-| Update to a new release | `git pull && sudo docker compose up -d --build` |
+| Update to a new release | automatic (section 6), or `git pull && sudo docker compose up -d --build` |
 | Restart | `sudo docker compose restart` |
 | Health from outside | point UptimeRobot (or similar) at `/healthz` |
 
