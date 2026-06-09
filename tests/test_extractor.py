@@ -77,7 +77,8 @@ def test_empty_array_is_valid() -> None:
 
 def test_strips_reasoning_think_blocks() -> None:
     """DeepSeek R1-style models may inline <think>…</think> before the answer."""
-    response = "<think>\nThe text mentions maintenance on Saturday...\n[not json]\n</think>\n" + VALID_JSON
+    thinking = "<think>\nThe text mentions maintenance on Saturday...\n[not json]\n</think>\n"
+    response = thinking + VALID_JSON
     backend = ScriptedBackend([response])
     events = EventExtractor(backend, ["deepseek/deepseek-r1"]).extract("text")
     assert len(events) == 1
