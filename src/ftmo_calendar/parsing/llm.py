@@ -60,6 +60,7 @@ Announcement text:
 """
 
 _FENCE = re.compile(r"^```(?:json)?\s*|\s*```$")
+_THINK = re.compile(r"<think>.*?</think>", re.DOTALL)
 
 
 class EventExtractor:
@@ -98,5 +99,14 @@ class EventExtractor:
 
     @staticmethod
     def _parse(raw: str) -> list[RawEvent]:
-        cleaned = _FENCE.sub("", raw.strip()).strip()
-        return _EVENTS.validate_json(cleaned)
+        cleaned = _THINK.sub("", raw)  # reasoning models (DeepSeek R1, …) inline <think> blocks
+        cleaned = _FENCE.sub("", cleaned.strip()).strip()
+        try:
+            return _EVENTS.validate_json(cleaned)
+        except ValidationError:
+            # Some models wrap the array in prose despite instructions —
+            # fall back to the outermost JSON array in the reply.
+            start, end = cleaned.find("["), cleaned.rfind("]")
+            if 0 <= start < end:
+                return _EVENTS.validate_json(cleaned[start : end + 1])
+            raise

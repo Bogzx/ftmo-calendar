@@ -100,15 +100,19 @@ as `LLM_API_KEY`.
 **OpenRouter / OpenAI / Groq / Ollama / anything OpenAI-compatible:**
 
 ```toml
-# config.toml
+# config.toml — example: DeepSeek via OpenRouter
 [llm]
 provider = "openai-compatible"
 base_url = "https://openrouter.ai/api/v1"   # or your provider's endpoint
-models = ["google/gemini-2.5-flash", "openai/gpt-5-mini"]
+models = ["deepseek/deepseek-v4-flash", "deepseek/deepseek-v3.2"]
 ```
 
-`models` is an ordered fallback list — if the first model errors or returns invalid
-JSON twice, the next one is tried.
+Set `LLM_API_KEY` in `.env` to your [OpenRouter key](https://openrouter.ai/keys).
+Any model on the platform works — `deepseek/deepseek-chat`, `openai/gpt-5-mini`,
+`google/gemini-2.5-flash`, … The extractor is robust to model quirks: it strips
+reasoning `<think>` blocks (DeepSeek R1 etc.), markdown fences, and prose around
+the JSON, and retries with the validation error before falling back to the next
+model in `models`.
 
 ## Google Calendar setup
 

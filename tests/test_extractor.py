@@ -73,3 +73,26 @@ def test_raises_when_all_models_fail() -> None:
 def test_empty_array_is_valid() -> None:
     backend = ScriptedBackend(["[]"])
     assert EventExtractor(backend, ["m1"]).extract("text") == []
+
+
+def test_strips_reasoning_think_blocks() -> None:
+    """DeepSeek R1-style models may inline <think>…</think> before the answer."""
+    response = "<think>\nThe text mentions maintenance on Saturday...\n[not json]\n</think>\n" + VALID_JSON
+    backend = ScriptedBackend([response])
+    events = EventExtractor(backend, ["deepseek/deepseek-r1"]).extract("text")
+    assert len(events) == 1
+
+
+def test_extracts_array_wrapped_in_prose() -> None:
+    """Chat models sometimes wrap the JSON in pleasantries despite instructions."""
+    response = f"Sure! Here is the extracted data:\n{VALID_JSON}\nLet me know if you need more."
+    backend = ScriptedBackend([response])
+    events = EventExtractor(backend, ["deepseek/deepseek-chat"]).extract("text")
+    assert len(events) == 1
+
+
+def test_think_block_and_prose_combined() -> None:
+    response = f"<think>reasoning [1,2,3] here</think>The answer:\n```json\n{VALID_JSON}\n```"
+    backend = ScriptedBackend([response])
+    events = EventExtractor(backend, ["m1"]).extract("text")
+    assert len(events) == 1

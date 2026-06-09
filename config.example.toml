@@ -11,6 +11,10 @@ max_age_days = 14               # ignore posts older than this
 [llm]
 # provider "gemini" uses Google AI Studio (free tier available).
 # provider "openai-compatible" works with OpenRouter, OpenAI, Groq, Ollama, …
+# e.g. DeepSeek via OpenRouter:
+#   provider = "openai-compatible"
+#   base_url = "https://openrouter.ai/api/v1"
+#   models = ["deepseek/deepseek-v4-flash", "deepseek/deepseek-v3.2"]
 provider = "gemini"
 base_url = ""                   # e.g. "https://openrouter.ai/api/v1" for OpenRouter
 models = ["gemini-2.5-flash", "gemini-2.0-flash"]   # ordered fallback list
