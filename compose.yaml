@@ -1,0 +1,12 @@
+services:
+  ftmo-calendar:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env # LLM_API_KEY, optional DISCORD_WEBHOOK_URL / TELEGRAM_* vars
+    volumes:
+      # Put config.toml and service_account.json (or token.json) in ./data.
+      # state.json and the ICS feed are written there too.
+      - ./data:/data
