@@ -140,7 +140,8 @@ def _status_page(state_path: Path, status: ServerStatus) -> bytes:
     page = f"""<!doctype html>
 <html><head><meta charset="utf-8"><title>AutoFtmoCalendar</title>
 <style>body{{font-family:system-ui,sans-serif;max-width:48rem;margin:2rem auto;padding:0 1rem}}
-table{{border-collapse:collapse;width:100%}}td,th{{border:1px solid #ddd;padding:.4rem;text-align:left}}
+table{{border-collapse:collapse;width:100%}}
+td,th{{border:1px solid #ddd;padding:.4rem;text-align:left}}
 code{{background:#f4f4f4;padding:.1rem .3rem}}</style></head><body>
 <h1>AutoFtmoCalendar</h1>
 <p>Status: {health}</p>

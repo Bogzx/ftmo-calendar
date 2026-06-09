@@ -157,16 +157,18 @@ def _cmd_serve(config: AppConfig, port_override: int | None) -> int:
     from ftmo_calendar.server import serve_forever
 
     # The feed is the point of serve mode — force ICS generation on.
-    config = dataclasses.replace(
-        config, ics=dataclasses.replace(config.ics, enabled=True)
-    )
+    config = dataclasses.replace(config, ics=dataclasses.replace(config.ics, enabled=True))
+
+    def sync() -> None:
+        _cmd_run(config, dry_run=False)
+
     return serve_forever(
         host=config.serve.host,
         port=port_override or config.serve.port,
         interval_seconds=config.serve.sync_interval_minutes * 60,
         ics_path=config.resolve(config.ics.path),
         state_path=config.state_path,
-        sync_fn=lambda: _cmd_run(config, dry_run=False),
+        sync_fn=sync,
         on_error=lambda e: _notify_failure(config, "run", e),
     )
 

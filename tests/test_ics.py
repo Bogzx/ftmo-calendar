@@ -22,7 +22,9 @@ def make_state() -> State:
                         start="2026-06-06T08:00:00+03:00",
                     ),
                     # v1-era event without display data — must be skipped
-                    TrackedEvent(event_key="old", google_event_id="g2", end="2026-06-07T00:00:00+00:00"),
+                    TrackedEvent(
+                        event_key="old", google_event_id="g2", end="2026-06-07T00:00:00+00:00"
+                    ),
                 ],
             )
         }

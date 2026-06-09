@@ -23,6 +23,22 @@ calendar_id = ""                # REQUIRED for service_account; optional overrid
 timezone = "Europe/Bucharest"
 reminders_minutes = [60, 10]    # popup reminders before each event
 
+[notify]
+on_events = true                # message when events are created/removed
+on_errors = true                # message when a run fails
+heartbeat_hours = 0             # e.g. 24 = daily "I'm alive" ping; 0 = off
+# Channels activate via env vars (see .env.example):
+#   DISCORD_WEBHOOK_URL, or TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID
+
+[ics]
+enabled = false                 # also write an .ics feed file every run
+path = "ftmo-events.ics"
+
+[serve]
+host = "0.0.0.0"                # used by `ftmo-calendar serve`
+port = 8080
+sync_interval_minutes = 360     # sync every 6 hours
+
 [events]
 max_duration_hours = 48         # sanity cap; longer extractions are rejected
 max_days_ahead = 120

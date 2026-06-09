@@ -19,9 +19,7 @@ _PRODID = "-//AutoFtmoCalendar//ftmo-calendar//EN"
 
 
 def _escape(text: str) -> str:
-    return (
-        text.replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,").replace("\n", "\\n")
-    )
+    return text.replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,").replace("\n", "\\n")
 
 
 def _utc_stamp(iso: str) -> str:

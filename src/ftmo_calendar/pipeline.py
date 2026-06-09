@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -107,10 +108,8 @@ def _describe_event(event: TradingEvent) -> str:
 def _describe_tracked(tracked: TrackedEvent) -> str:
     label = tracked.summary or tracked.event_key
     when = tracked.start or tracked.end
-    try:
+    with contextlib.suppress(ValueError):
         when = f"{datetime.fromisoformat(when):%a %d %b %H:%M}"
-    except ValueError:
-        pass
     return f"{label} — {when}"
 
 

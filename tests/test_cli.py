@@ -84,9 +84,7 @@ def test_report_summary_format() -> None:
     assert "[dry-run]" in text and "1 created" in text
 
 
-def test_failure_sends_error_notification(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_failure_sends_error_notification(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     recorder = RecordingNotifier()
     monkeypatch.setattr(cli, "make_notifiers", lambda cfg: [recorder])
 

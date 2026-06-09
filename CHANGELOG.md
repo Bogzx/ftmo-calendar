@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.3.0 — 2026-06-09
+
+Reach & visibility: notifications, ICS feed, hosted mode, Docker.
+
+### Added
+- Discord webhook and Telegram bot notifications: new/removed events, run
+  failures, and an optional periodic heartbeat (`[notify] heartbeat_hours`)
+- ICS feed export (`[ics] enabled`): subscribe from any calendar app with
+  zero OAuth setup
+- `ftmo-calendar serve`: periodic sync loop + HTTP server exposing
+  `/feed.ics`, a `/status` page, and `/healthz` — host one feed for a whole
+  trading group; a failing sync never takes the feed down
+- Docker support: `docker compose up -d` runs serve mode with all runtime
+  files in a `./data` volume
+- State v2: tracked events carry display data; heartbeat timestamp persisted
+  (v1 state files load transparently)
+
 ## 0.2.0 — 2026-06-09
 
 Complete rewrite as a professional package.

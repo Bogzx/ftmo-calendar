@@ -132,9 +132,7 @@ def test_sync_loop_records_failure_and_continues() -> None:
             stop.set()
         raise RuntimeError("scrape failed")
 
-    run_sync_loop(
-        sync, interval_seconds=0.01, stop=stop, status=status, on_error=errors.append
-    )
+    run_sync_loop(sync, interval_seconds=0.01, stop=stop, status=status, on_error=errors.append)
     assert len(calls) == 2
     snapshot = status.snapshot()
     assert snapshot["runs_failed"] == 2

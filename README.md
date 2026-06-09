@@ -107,6 +107,57 @@ auth_mode = "service_account"
 calendar_id = "xxxxxxxxxxxx@group.calendar.google.com"
 ```
 
+## Notifications
+
+Get pinged when something changes — or when something breaks. Add a channel to
+`.env` and it activates automatically:
+
+```bash
+DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/..."   # and/or:
+TELEGRAM_BOT_TOKEN="123456:ABC..."
+TELEGRAM_CHAT_ID="123456789"
+```
+
+You'll receive messages like:
+
+```
+📅 FTMO Calendar updated
+➕ ⚠️ FTMO Platform Maintenance — Sat 06 Jun 08:00–14:00 EEST
+
+❌ ftmo-calendar run failed: OAuth token refresh failed (expired or revoked). ...
+```
+
+Set `heartbeat_hours = 24` under `[notify]` in `config.toml` for a daily
+"✅ alive" ping — so silence always means something is wrong, never that the
+tool quietly died.
+
+## ICS feed (no Google account needed)
+
+Set `[ics] enabled = true` and every run also writes `ftmo-events.ics`. Anyone
+can subscribe to that file (or the URL served by `serve`, below) from Google,
+Apple, or Outlook calendars — zero OAuth setup on the subscriber side.
+
+## Hosting a feed for your trading group
+
+`ftmo-calendar serve` runs the sync on a schedule **and** hosts the results
+over HTTP: one person runs it, the whole group subscribes.
+
+- `GET /feed.ics` — the calendar feed (add it as "subscribe by URL")
+- `GET /status` — human status page with tracked events
+- `GET /healthz` — JSON health for uptime monitors
+
+The easiest way to run it is Docker:
+
+```bash
+mkdir data && cp config.example.toml data/config.toml
+cp .env.example .env                      # add LLM_API_KEY
+# put service_account.json in data/ and set calendar_id (see setup below)
+docker compose up -d
+```
+
+A failing sync never takes the feed down — the last good data keeps serving,
+`/healthz` reports the error, and your notification channel gets the details.
+
 ## Scheduling
 
 Exit codes: `0` success, `1` runtime error, `2` configuration/auth error — so your
@@ -134,6 +185,7 @@ schtasks /Create /TN "FTMO Calendar" /SC HOURLY /MO 6 `
 | `ftmo-calendar auth` | One-time interactive Google authorization (OAuth mode) |
 | `ftmo-calendar auth --check` | Report credential/token health |
 | `ftmo-calendar status` | Show tracked posts and the events created for them |
+| `ftmo-calendar serve [--port N]` | Periodic sync + hosted ICS feed and status page |
 | `--config PATH` | Use a config file other than `./config.toml` |
 | `-v` | Debug logging |
 
