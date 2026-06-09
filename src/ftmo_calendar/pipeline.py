@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Protocol
 from zoneinfo import ZoneInfo
@@ -36,6 +36,8 @@ class RunReport:
     events_kept: int = 0
     rejections: int = 0
     dry_run: bool = False
+    created_lines: list[str] = field(default_factory=list)
+    deleted_lines: list[str] = field(default_factory=list)
 
     def summary(self) -> str:
         prefix = "[dry-run] " if self.dry_run else ""
@@ -98,6 +100,20 @@ def run_pipeline(
     return report
 
 
+def _describe_event(event: TradingEvent) -> str:
+    return f"{event.summary} — {event.start:%a %d %b %H:%M}–{event.end:%H:%M %Z}"
+
+
+def _describe_tracked(tracked: TrackedEvent) -> str:
+    label = tracked.summary or tracked.event_key
+    when = tracked.start or tracked.end
+    try:
+        when = f"{datetime.fromisoformat(when):%a %d %b %H:%M}"
+    except ValueError:
+        pass
+    return f"{label} — {when}"
+
+
 def _track(event: TradingEvent, backend_id: str) -> TrackedEvent:
     return TrackedEvent(
         event_key=event.event_key,
@@ -136,6 +152,7 @@ def _reconcile(
         if not dry_run:
             sink.delete_event(old_event.google_event_id)
         report.events_deleted += 1
+        report.deleted_lines.append(_describe_tracked(old_event))
 
     for event in events:
         if event.event_key in old:
@@ -145,6 +162,7 @@ def _reconcile(
         if dry_run:
             logger.info("[dry-run] would create '%s' at %s", event.summary, event.start)
             report.events_created += 1
+            report.created_lines.append(_describe_event(event))
             continue
         existing_id = sink.find_event_id_by_key(event.event_key)
         if existing_id:
@@ -155,5 +173,6 @@ def _reconcile(
         google_id = sink.create_event(event)
         tracked.append(_track(event, google_id))
         report.events_created += 1
+        report.created_lines.append(_describe_event(event))
 
     return PostState(content_hash=post.content_hash, last_seen=now.isoformat(), events=tracked)

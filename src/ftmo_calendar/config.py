@@ -53,6 +53,17 @@ class CalendarConfig:
 
 
 @dataclass(frozen=True)
+class NotifyConfig:
+    on_events: bool = True
+    on_errors: bool = True
+    heartbeat_hours: int = 0  # 0 = heartbeat disabled
+    # Channel secrets come from env vars, never from TOML:
+    discord_webhook_url: str = ""  # DISCORD_WEBHOOK_URL
+    telegram_bot_token: str = ""  # TELEGRAM_BOT_TOKEN
+    telegram_chat_id: str = ""  # TELEGRAM_CHAT_ID
+
+
+@dataclass(frozen=True)
 class EventRules:
     max_duration_hours: int = 48
     max_days_ahead: int = 120
@@ -66,6 +77,7 @@ class AppConfig:
     calendar: CalendarConfig
     events: EventRules
     base_dir: Path
+    notify: NotifyConfig = field(default_factory=NotifyConfig)
 
     @property
     def state_path(self) -> Path:
@@ -149,12 +161,21 @@ def load_config(path: Path, env: Mapping[str, str] | None = None) -> AppConfig:
     api_key = env_map.get("LLM_API_KEY", "") or env_map.get("GEMINI_API_KEY", "")
     llm = dataclasses.replace(llm, api_key=api_key)
 
+    notify = _section(NotifyConfig, data, "notify")
+    notify = dataclasses.replace(
+        notify,
+        discord_webhook_url=env_map.get("DISCORD_WEBHOOK_URL", ""),
+        telegram_bot_token=env_map.get("TELEGRAM_BOT_TOKEN", ""),
+        telegram_chat_id=env_map.get("TELEGRAM_CHAT_ID", ""),
+    )
+
     cfg = AppConfig(
         source=source,
         llm=llm,
         calendar=calendar,
         events=events,
         base_dir=path.resolve().parent,
+        notify=notify,
     )
     _validate(cfg)
     return cfg
