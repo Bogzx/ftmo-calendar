@@ -59,8 +59,14 @@ def server(tmp_path: Path):
 
         return render_ics(load_state(state_path), (60,), types=types, now=NOW).encode("utf-8")
 
+    from ftmo_calendar.stats import StatsStore
+
     handler = make_handler(
-        ics_path=ics_path, state_path=state_path, status=status, feed_renderer=feed_renderer
+        ics_path=ics_path,
+        state_path=state_path,
+        status=status,
+        feed_renderer=feed_renderer,
+        stats=StatsStore(tmp_path / "stats.json"),
     )
     httpd = ThreadingHTTPServer(("127.0.0.1", 0), handler)
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
@@ -149,6 +155,35 @@ def test_landing_page_has_subscribe_and_countdown(server) -> None:
 
 def test_unknown_path_404(server) -> None:
     assert get(f"{server[0]}/nope")[0] == 404
+
+
+def test_page_sets_visitor_cookie_once(server) -> None:
+    base, _, _ = server
+    response = urllib.request.urlopen(f"{base}/", timeout=5)
+    set_cookie = response.headers.get("Set-Cookie", "")
+    assert "aftc_id=" in set_cookie and "HttpOnly" in set_cookie
+    cookie_value = set_cookie.split(";", 1)[0]
+    request = urllib.request.Request(f"{base}/", headers={"Cookie": cookie_value})
+    second = urllib.request.urlopen(request, timeout=5)
+    assert second.headers.get("Set-Cookie") is None  # known visitor: no new cookie
+
+
+def test_stats_endpoint_counts_visits_and_feed_pulls(server) -> None:
+    base, _, _ = server
+    cookie = urllib.request.urlopen(f"{base}/", timeout=5).headers["Set-Cookie"].split(";")[0]
+    request = urllib.request.Request(f"{base}/", headers={"Cookie": cookie})
+    urllib.request.urlopen(request, timeout=5)  # same visitor again
+    get(f"{base}/feed.ics")
+    payload = json.loads(get(f"{base}/stats")[2])
+    assert payload["today"]["views"] >= 2
+    assert payload["today"]["visitors"] >= 1
+    assert payload["today"]["feed_hits"] >= 1
+
+
+def test_page_footer_shows_todays_stats(server) -> None:
+    base, _, _ = server
+    body = get(f"{base}/")[2].decode("utf-8")
+    assert "feed pulls" in body and "no third-party trackers" in body
 
 
 def test_sync_loop_runs_and_records() -> None:

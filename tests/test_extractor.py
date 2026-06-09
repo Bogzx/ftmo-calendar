@@ -133,6 +133,15 @@ def test_consensus_identity_ignores_confidence() -> None:
     assert len(events) == 1  # same event despite differing confidence
 
 
+def test_consensus_merge_keeps_most_complete_affected() -> None:
+    short = A.replace('"confidence"', '"affected": "US30", "confidence"')
+    full = A.replace('"confidence"', '"affected": "US30, US100, US500", "confidence"')
+    backend = ScriptedBackend([f"[{short}]", f"[{full}]", f"[{short}]"])
+    events = EventExtractor(backend, ["m1"], consensus_runs=3).extract("text")
+    assert len(events) == 1
+    assert events[0].affected == "US30, US100, US500"
+
+
 def test_consensus_merges_offset_variants_and_keeps_explicit() -> None:
     """The same wall-clock event with offset None vs '+03:00' must not split the vote."""
     no_offset = A.replace('"stated_utc_offset": "+03:00"', '"stated_utc_offset": null')

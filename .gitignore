@@ -6,6 +6,7 @@ service_account.json
 app.log
 *.log
 state.json
+stats.json
 config.toml
 *.ics
 

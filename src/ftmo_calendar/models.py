@@ -11,8 +11,12 @@ from enum import StrEnum
 class EventType(StrEnum):
     MAINTENANCE = "maintenance"
     CRYPTO_CLOSURE = "crypto_closure"
-    HOLIDAY_HOURS = "holiday_hours"
+    HOLIDAY_CLOSURE = "holiday_closure"  # symbol(s) closed the whole day
+    EARLY_CLOSE = "early_close"  # session ends early on a date
+    LATE_OPEN = "late_open"  # session starts late on a date
+    SYMBOL_EVENT = "symbol_event"  # forced position closures, corporate actions
     OTHER = "other"
+    HOLIDAY_HOURS = "holiday_hours"  # legacy (pre-0.8 state files); no longer produced
 
 
 @dataclass(frozen=True)

@@ -9,17 +9,21 @@ Endpoints: GET /feed.ics (the calendar), GET /status (HTML), GET /healthz (JSON)
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
+import secrets
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from ftmo_calendar.state import load_state
+from ftmo_calendar.stats import StatsStore
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +109,7 @@ def make_handler(
     state_path: Path,
     status: ServerStatus,
     feed_renderer: Callable[[frozenset[str]], bytes] | None = None,
+    stats: StatsStore | None = None,
 ) -> type[BaseHTTPRequestHandler]:
     from ftmo_calendar.models import EventType
 
@@ -114,12 +119,30 @@ def make_handler(
         def log_message(self, format: str, *args) -> None:  # noqa: A002 - stdlib signature
             logger.debug("http: " + format, *args)
 
-        def _respond(self, code: int, content_type: str, body: bytes) -> None:
+        def _respond(
+            self,
+            code: int,
+            content_type: str,
+            body: bytes,
+            extra_headers: list[tuple[str, str]] | None = None,
+        ) -> None:
             self.send_response(code)
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(body)))
+            for name, value in extra_headers or []:
+                self.send_header(name, value)
             self.end_headers()
             self.wfile.write(body)
+
+        def _cookie(self, name: str) -> str:
+            jar = SimpleCookie()
+            jar.load(self.headers.get("Cookie", ""))
+            morsel = jar.get(name)
+            return morsel.value if morsel else ""
+
+        def _client_hash(self) -> str:
+            raw = f"{self.client_address[0]}|{self.headers.get('User-Agent', '')}"
+            return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 
         def _json(self, code: int, payload: dict) -> None:
             self._respond(code, "application/json; charset=utf-8", json.dumps(payload).encode())
@@ -150,13 +173,35 @@ def make_handler(
             path = self.path.split("?", 1)[0]
             if path == "/healthz":
                 self._json(200, status.snapshot())
+            elif path == "/stats":
+                if stats is None:
+                    self._json(404, {"error": "stats not enabled"})
+                else:
+                    self._json(200, stats.snapshot())
             elif path == "/feed.ics":
+                if stats is not None:
+                    stats.record_feed_hit(self._client_hash())
                 self._serve_feed()
             elif path in ("/", "/status"):
                 from ftmo_calendar.web import render_page
 
-                body = render_page(load_state(state_path), status.snapshot())
-                self._respond(200, "text/html; charset=utf-8", body)
+                extra_headers: list[tuple[str, str]] = []
+                stats_snapshot = None
+                if stats is not None:
+                    visitor_id = self._cookie("aftc_id")
+                    if not visitor_id:
+                        visitor_id = secrets.token_hex(8)
+                        extra_headers.append(
+                            (
+                                "Set-Cookie",
+                                f"aftc_id={visitor_id}; Max-Age=31536000; Path=/; "
+                                "SameSite=Lax; HttpOnly",
+                            )
+                        )
+                    stats.record_page_view(visitor_id)
+                    stats_snapshot = stats.snapshot()
+                body = render_page(load_state(state_path), status.snapshot(), stats_snapshot)
+                self._respond(200, "text/html; charset=utf-8", body, extra_headers)
             else:
                 self._json(404, {"error": "not found"})
 
@@ -172,6 +217,7 @@ def serve_forever(
     sync_fn: Callable[[], None],
     on_error: Callable[[BaseException], None] | None = None,
     feed_renderer: Callable[[frozenset[str]], bytes] | None = None,
+    stats: StatsStore | None = None,
 ) -> int:
     status = ServerStatus(
         started_at=datetime.now(UTC).isoformat(), interval_seconds=interval_seconds
@@ -185,7 +231,7 @@ def serve_forever(
     )
     loop_thread.start()
     httpd = ThreadingHTTPServer(
-        (host, port), make_handler(ics_path, state_path, status, feed_renderer)
+        (host, port), make_handler(ics_path, state_path, status, feed_renderer, stats)
     )
     logger.info(
         "Serving on http://%s:%d (feed: /feed.ics, status: /status); sync every %.0f min",

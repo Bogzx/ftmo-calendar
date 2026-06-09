@@ -72,3 +72,20 @@ def test_already_ended_rejected() -> None:
 def test_unparseable_datetime_rejected() -> None:
     events, rejections = run([raw(start="whenever")])
     assert events == [] and "datetime" in rejections[0].reason
+
+
+def test_affected_symbols_in_summary() -> None:
+    events, _ = run([raw(event_type="early_close", affected="US30.cash, US100.cash")])
+    assert events[0].summary == "⏳ Early Close — US30.cash, US100.cash"
+
+
+def test_long_affected_list_truncated() -> None:
+    events, _ = run([raw(affected=", ".join(f"SYM{i}.cash" for i in range(20)))])
+    assert len(events[0].summary) < 110
+    assert events[0].summary.endswith("…")
+
+
+def test_granular_types_validate() -> None:
+    for event_type in ("holiday_closure", "early_close", "late_open", "symbol_event"):
+        events, rejections = run([raw(event_type=event_type)])
+        assert rejections == [] and events[0].event_type.value == event_type

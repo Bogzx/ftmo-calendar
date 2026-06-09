@@ -26,7 +26,7 @@ def _row(summary: str, start: str, end: str, state_cls: str) -> str:
     )
 
 
-def render_page(state: State, snapshot: dict) -> bytes:
+def render_page(state: State, snapshot: dict, stats: dict | None = None) -> bytes:
     now = datetime.now(UTC)
     upcoming: list[tuple[datetime, str, str, str]] = []
     past: list[tuple[datetime, str, str, str]] = []
@@ -65,6 +65,16 @@ def render_page(state: State, snapshot: dict) -> bytes:
         value = snapshot.get(key)
         return (
             f'<time data-iso="{html.escape(value)}">{html.escape(value)}</time>' if value else "—"
+        )
+
+    stats_line = ""
+    if stats is not None:
+        today = stats.get("today", {})
+        stats_line = (
+            f"<span>today: {today.get('visitors', 0)} visitors · "
+            f"{today.get('feed_hits', 0)} feed pulls</span>"
+            '<span class="privacy">anonymous first-party visit counting only — '
+            "no third-party trackers</span>"
         )
 
     page = f"""<!doctype html>
@@ -174,6 +184,7 @@ footer time {{ color:var(--dim); }}
 footer a {{ color:var(--dim); text-decoration:none; border-bottom:1px solid var(--line); }}
 footer a:hover {{ color:var(--amber); }}
 .errline {{ color:var(--red); font-size:11px; margin-top:10px; width:100%; }}
+.privacy {{ font-family:var(--serif); font-style:italic; }}
 @keyframes rise {{ from {{ opacity:0; transform:translateY(10px) }} to {{ opacity:1; transform:none }} }}
 @media (max-width:520px) {{
   #count {{ font-size:clamp(22px,7.5vw,32px); letter-spacing:0; }}
@@ -215,7 +226,10 @@ footer a:hover {{ color:var(--amber); }}
     <span class="hint">Only care about some of it? Untick — the URL updates:</span>
     <label><input type="checkbox" data-type="maintenance" checked> MAINTENANCE</label>
     <label><input type="checkbox" data-type="crypto_closure" checked> CRYPTO</label>
-    <label><input type="checkbox" data-type="holiday_hours" checked> HOLIDAY HOURS</label>
+    <label><input type="checkbox" data-type="holiday_closure" checked> HOLIDAY CLOSURES</label>
+    <label><input type="checkbox" data-type="early_close" checked> EARLY CLOSES</label>
+    <label><input type="checkbox" data-type="late_open" checked> LATE OPENS</label>
+    <label><input type="checkbox" data-type="symbol_event" checked> SYMBOL EVENTS</label>
     <label><input type="checkbox" data-type="other" checked> OTHER</label>
   </div>
   <div class="apps">
@@ -242,6 +256,7 @@ footer a:hover {{ color:var(--amber); }}
   <span>ok {snapshot.get("runs_ok", 0)} · failed {snapshot.get("runs_failed", 0)}</span>
   <span>source: <a href="https://ftmo.com/en/trading-updates/" rel="noopener">ftmo.com</a></span>
   <span><a href="https://github.com/Bogzx/AutoFtmoCalendar" rel="noopener">open source</a> · not affiliated with FTMO</span>
+  {stats_line}
   {error_line}
 </footer>
 

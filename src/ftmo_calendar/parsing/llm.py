@@ -15,10 +15,19 @@ logger = logging.getLogger(__name__)
 class RawEvent(BaseModel):
     """One event as extracted by the model, before validation/normalization."""
 
-    event_type: Literal["maintenance", "crypto_closure", "holiday_hours", "other"]
+    event_type: Literal[
+        "maintenance",
+        "crypto_closure",
+        "holiday_closure",
+        "early_close",
+        "late_open",
+        "symbol_event",
+        "other",
+    ]
     start_time: str
     end_time: str
     stated_utc_offset: str | None = None
+    affected: str | None = None  # symbols/platforms, e.g. "UK100.cash, HK50.cash" or "cTrader"
     confidence: Literal["high", "low"] = "high"
 
 
@@ -33,27 +42,52 @@ class ExtractionError(Exception):
     """No model produced a valid extraction."""
 
 
+def _merge_variant(kept: RawEvent, candidate: RawEvent) -> RawEvent:
+    """Combine duplicate extractions of one event, keeping the most explicit fields."""
+    updates: dict = {}
+    if kept.stated_utc_offset is None and candidate.stated_utc_offset:
+        updates["stated_utc_offset"] = candidate.stated_utc_offset
+    if len(candidate.affected or "") > len(kept.affected or ""):
+        updates["affected"] = candidate.affected
+    return kept.model_copy(update=updates) if updates else kept
+
+
 class LLMBackend(Protocol):
     def complete(self, prompt: str, model: str) -> str: ...
 
 
 PROMPT_TEMPLATE = """You extract scheduled trading interruptions from a prop-firm announcement.
 
-Identify every scheduled platform maintenance window, crypto market closure, and \
-modified/closed trading-hours period in the text below.
+Output ONLY a JSON array, no prose and no markdown fences. Each element:
+{{"event_type": "...", "start_time": "YYYY-MM-DDTHH:MM:SS", "end_time": "YYYY-MM-DDTHH:MM:SS", \
+"stated_utc_offset": "+03:00" or null, "affected": "..." or null, "confidence": "high"|"low"}}
+
+Event types — classify every scheduled interruption as exactly one of:
+- "maintenance": trading platform downtime (MT4, MT5, cTrader, DXtrade). One event per \
+distinct window; set "affected" to the platforms (e.g. "all platforms", "cTrader").
+- "crypto_closure": crypto symbols closed or unavailable.
+- "holiday_closure": symbol(s) closed for the WHOLE day (holiday). Times 00:00:00-23:59:00 \
+of that day.
+- "early_close": symbol(s) stop trading early. start_time = the early close time, \
+end_time = 23:59:00 the same day.
+- "late_open": symbol(s) start trading late. start_time = 00:00:00 that day, \
+end_time = the late opening time.
+- "symbol_event": scheduled forced actions on positions (corporate actions, spin-offs, \
+delistings — e.g. "open FDX positions will be closed automatically"). If only a day is \
+given, use 00:00:00-23:59:00 and confidence "low".
+- "other": any other scheduled trading interruption.
 
 Rules:
-- Output ONLY a JSON array, no prose and no markdown fences.
-- Each element: {{"event_type": "maintenance"|"crypto_closure"|"holiday_hours"|"other", \
-"start_time": "YYYY-MM-DDTHH:MM:SS", "end_time": "YYYY-MM-DDTHH:MM:SS", \
-"stated_utc_offset": "+03:00" or null, "confidence": "high"|"low"}}
+- "affected": the symbols or platforms concerned, comma-separated, verbatim from the text \
+(e.g. "UK100.cash, HK50.cash, Equities I CFD"). Group symbols sharing the same type and \
+times into ONE event. null if everything is affected.
 - If the text states a timezone (e.g. "GMT+3"), set stated_utc_offset to it ("+03:00"); else null.
-- If an end time is implied rather than stated (e.g. "closed whole day"), infer it \
-(00:00:00 to 23:59:00 of that day) and set confidence to "low".
-- Ignore anything without a concrete scheduled date (general reminders, swap notices).
-- Client Area, website, IT, billing, or account-services maintenance is NOT a trading \
-interruption — never emit an event for it. Only windows where trading itself is unavailable \
-or restricted count (platform maintenance, market/symbol closures, modified trading hours).
+- Ignore anything without a concrete scheduled date (general reminders, swap notices, \
+geopolitical advisories).
+- Ignore Client Area / website / IT / billing / account-services maintenance — it is not a \
+trading interruption.
+- Ignore condition changes that interrupt nothing: leverage adjustments, execution-model \
+news, permanent session-time changes ("effective from..."), spread or swap updates.
 - If there are no scheduled events, output [].
 
 Announcement text:
@@ -118,8 +152,8 @@ class EventExtractor:
                 if key not in merged:
                     merged[key] = event
                     order.append(key)
-                elif merged[key].stated_utc_offset is None and event.stated_utc_offset:
-                    merged[key] = event
+                else:
+                    merged[key] = _merge_variant(merged[key], event)
         kept = [merged[key] for key in order if counts[key] >= majority]
         dropped = [key for key in order if counts[key] < majority]
         if dropped:

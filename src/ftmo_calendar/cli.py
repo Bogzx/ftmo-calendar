@@ -217,6 +217,8 @@ def _cmd_serve(config: AppConfig, port_override: int | None) -> int:
             types=types,
         ).encode("utf-8")
 
+    from ftmo_calendar.stats import StatsStore
+
     return serve_forever(
         host=config.serve.host,
         port=port_override or config.serve.port,
@@ -226,6 +228,7 @@ def _cmd_serve(config: AppConfig, port_override: int | None) -> int:
         sync_fn=sync,
         on_error=lambda e: _notify_failure(config, "run", e),
         feed_renderer=feed_renderer,
+        stats=StatsStore(config.base_dir / "stats.json"),
     )
 
 

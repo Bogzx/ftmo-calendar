@@ -201,12 +201,30 @@ filter with a query parameter — each distinct URL behaves as its own calendar:
 ```
 /feed.ics                                   # everything
 /feed.ics?types=crypto_closure              # crypto closures only
-/feed.ics?types=maintenance,holiday_hours   # any combination
+/feed.ics?types=early_close,holiday_closure # any combination
 ```
 
-Valid types: `maintenance`, `crypto_closure`, `holiday_hours`, `other`. The
+| Type | Example event title |
+| --- | --- |
+| `maintenance` | ⚠️ Platform Maintenance — cTrader |
+| `crypto_closure` | 🚫 Crypto Closed |
+| `holiday_closure` | 🏖️ Closed All Day — UK100.cash, HK50.cash, Equities I CFD |
+| `early_close` | ⏳ Early Close — US30.cash, US100.cash, US500.cash |
+| `late_open` | 🕗 Late Open — CORN.c, SOYBEAN.c, WHEAT.c |
+| `symbol_event` | 📌 Forced Action — FDX |
+| `other` | ℹ️ FTMO Trading Update |
+
+Event titles carry the affected symbols, extracted from the announcement. The
 landing page has checkboxes that build the URL for you; unknown types return
 a 400 listing the valid ones.
+
+## Built-in statistics
+
+Serve mode keeps simple, self-hosted usage stats: page views, unique visitors
+(an anonymous first-party cookie with a random id — no third parties, nothing
+identifiable), feed pulls, and unique feed clients. Today's numbers appear in
+the page footer; `GET /stats` returns JSON with a 30-day daily history
+(persisted in `stats.json`).
 
 ## Scheduling
 

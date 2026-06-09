@@ -16,10 +16,14 @@ class ConfigError(Exception):
 
 
 DEFAULT_SUMMARIES: dict[str, str] = {
-    "maintenance": "⚠️ FTMO Platform Maintenance",
-    "crypto_closure": "🚫 Crypto Market Closed",
-    "holiday_hours": "🕒 Modified Trading Hours",
+    "maintenance": "⚠️ Platform Maintenance",
+    "crypto_closure": "🚫 Crypto Closed",
+    "holiday_closure": "🏖️ Closed All Day",
+    "early_close": "⏳ Early Close",
+    "late_open": "🕗 Late Open",
+    "symbol_event": "📌 Forced Action",
     "other": "ℹ️ FTMO Trading Update",
+    "holiday_hours": "🕒 Modified Trading Hours",  # legacy state entries only
 }
 
 

@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.8.0 — 2026-06-10
+
+Granular event taxonomy (grounded in FTMO's announcement history) + stats.
+
+### Added
+- Seven event types replacing the coarse four: `maintenance`, `crypto_closure`,
+  `holiday_closure`, `early_close`, `late_open`, `symbol_event`, `other`
+  (`holiday_hours` remains valid for pre-0.8 state files). Derived from a
+  sample of historical FTMO posts; verified live: the Memorial Day announcement
+  extracts as 8 correctly-typed events with zero rejections
+- Event titles now carry the affected symbols/platforms ("⏳ Early Close —
+  US30.cash, US100.cash"), extracted via a new `affected` field; consensus
+  voting merges partial symbol lists, keeping the most complete
+- Prompt now explicitly ignores leverage adjustments, execution-model news,
+  and permanent session-time changes
+- Landing page: seven filter chips
+- Self-hosted anonymous statistics in serve mode: page views, unique visitors
+  (random-id first-party cookie), feed pulls, unique feed clients; footer
+  summary, `GET /stats` JSON with 30-day history, persisted to `stats.json`
+
 ## 0.7.0 — 2026-06-10
 
 Per-interest feeds: subscribe to only what you trade.

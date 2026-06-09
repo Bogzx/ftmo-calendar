@@ -81,7 +81,7 @@ def validate_events(
             events.append(
                 TradingEvent(
                     event_type=event_type,
-                    summary=rules.summaries.get(event_type.value, rules.summaries["other"]),
+                    summary=_build_summary(event_type, raw.affected, rules),
                     description=build_description(post),
                     start=start.astimezone(calendar_tz),
                     end=end.astimezone(calendar_tz),
@@ -90,3 +90,16 @@ def validate_events(
                 )
             )
     return events, rejections
+
+
+_AFFECTED_LIMIT = 70
+
+
+def _build_summary(event_type: EventType, affected: str | None, rules: EventRules) -> str:
+    summary = rules.summaries.get(event_type.value, rules.summaries["other"])
+    affected = (affected or "").strip()
+    if affected:
+        if len(affected) > _AFFECTED_LIMIT:
+            affected = affected[:_AFFECTED_LIMIT].rstrip(", ") + "…"
+        summary = f"{summary} — {affected}"
+    return summary
