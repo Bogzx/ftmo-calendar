@@ -147,7 +147,9 @@ def _cmd_run(config: AppConfig, dry_run: bool) -> int:
         max_posts=config.source.max_posts,
         max_age_days=config.source.max_age_days,
     )
-    extractor = EventExtractor(make_backend(config.llm), config.llm.models)
+    extractor = EventExtractor(
+        make_backend(config.llm), config.llm.models, consensus_runs=config.llm.consensus_runs
+    )
     sink = _build_sink(config, dry_run)
     state = load_state(config.state_path)
 

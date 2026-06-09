@@ -108,7 +108,7 @@ as `LLM_API_KEY`.
 [llm]
 provider = "openai-compatible"
 base_url = "https://openrouter.ai/api/v1"   # or your provider's endpoint
-models = ["deepseek/deepseek-v4-flash", "deepseek/deepseek-v3.2"]
+models = ["deepseek/deepseek-v4-flash", "deepseek/deepseek-v4-pro"]
 ```
 
 Set `LLM_API_KEY` in `.env` to your [OpenRouter key](https://openrouter.ai/keys).

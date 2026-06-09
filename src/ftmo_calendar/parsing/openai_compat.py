@@ -17,6 +17,7 @@ class OpenAICompatBackend:
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0,
+                seed=42,  # determinism hint; honored by some providers, ignored by others
             )
         except OpenAIError as e:
             raise BackendError(str(e)) from e

@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.5.0 — 2026-06-09
+
+Deterministic extraction, verified live on DeepSeek via OpenRouter.
+
+### Added
+- **Consensus voting** (`[llm] consensus_runs`, default 3): each changed post is
+  extracted N times and only majority events are kept — stable results even on
+  hosted APIs that aren't deterministic at temperature 0 (OpenRouter routes one
+  model id across several providers). Verified live: 4 consecutive consensus
+  extractions of a real FTMO post produced identical event sets.
+- Prompt rule excluding Client Area/IT/account-services maintenance (the one
+  borderline case that flickered between runs) — only trading interruptions count
+- `seed` hint on OpenAI-compatible calls for providers that honor it
+- Consensus identity merges timezone-attribution variants of the same event,
+  preferring the explicit offset
+
 ## 0.4.0 — 2026-06-09
 
 Feed-first hosting: run a public feed for a whole group with just an LLM key.

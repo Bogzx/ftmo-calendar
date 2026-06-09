@@ -37,6 +37,7 @@ class LLMConfig:
     provider: str = "gemini"  # "gemini" | "openai-compatible"
     base_url: str = ""  # e.g. https://openrouter.ai/api/v1
     models: tuple[str, ...] = ("gemini-2.5-flash", "gemini-2.0-flash")
+    consensus_runs: int = 3  # majority-vote across N extractions for stable results
     api_key: str = ""  # from LLM_API_KEY / GEMINI_API_KEY env, never from TOML
 
 
@@ -143,6 +144,8 @@ def _validate(cfg: AppConfig) -> None:
         )
     if not cfg.llm.models:
         raise ConfigError("llm.models must list at least one model")
+    if cfg.llm.consensus_runs < 1:
+        raise ConfigError("llm.consensus_runs must be at least 1")
     for tz_name in (cfg.source.timezone, cfg.calendar.timezone):
         try:
             ZoneInfo(tz_name)

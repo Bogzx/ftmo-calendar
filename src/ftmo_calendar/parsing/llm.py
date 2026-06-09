@@ -51,6 +51,9 @@ Rules:
 - If an end time is implied rather than stated (e.g. "closed whole day"), infer it \
 (00:00:00 to 23:59:00 of that day) and set confidence to "low".
 - Ignore anything without a concrete scheduled date (general reminders, swap notices).
+- Client Area, website, IT, billing, or account-services maintenance is NOT a trading \
+interruption — never emit an event for it. Only windows where trading itself is unavailable \
+or restricted count (platform maintenance, market/symbol closures, modified trading hours).
 - If there are no scheduled events, output [].
 
 Announcement text:
@@ -64,14 +67,28 @@ _THINK = re.compile(r"<think>.*?</think>", re.DOTALL)
 
 
 class EventExtractor:
-    def __init__(self, backend: LLMBackend, models: Sequence[str]) -> None:
+    def __init__(self, backend: LLMBackend, models: Sequence[str], consensus_runs: int = 1) -> None:
         if not models:
             raise ValueError("at least one model is required")
         self.backend = backend
         self.models = list(models)
+        self.consensus_runs = max(1, consensus_runs)
 
     def extract(self, text: str) -> list[RawEvent]:
+        """Extract events; with consensus_runs > 1, majority-vote across runs.
+
+        Hosted APIs (notably OpenRouter, which routes one model id across
+        several providers) are not perfectly deterministic even at
+        temperature 0. Majority voting across runs makes the reported event
+        set stable run-to-run.
+        """
         prompt = PROMPT_TEMPLATE.format(text=text)
+        if self.consensus_runs == 1:
+            return self._extract_with_fallback(prompt)
+        runs = [self._extract_with_fallback(prompt) for _ in range(self.consensus_runs)]
+        return self._consensus(runs)
+
+    def _extract_with_fallback(self, prompt: str) -> list[RawEvent]:
         last_error: Exception | None = None
         for model in self.models:
             try:
@@ -80,6 +97,39 @@ class EventExtractor:
                 logger.warning("Model %s failed: %s", model, e)
                 last_error = e
         raise ExtractionError(f"all models failed; last error: {last_error}")
+
+    def _consensus(self, runs: list[list[RawEvent]]) -> list[RawEvent]:
+        # Identity excludes stated_utc_offset: one announcement has one timezone
+        # context, and offset-None resolves to the same instant downstream — an
+        # offset-attribution flicker must not split the vote. The most explicit
+        # variant wins the merge.
+        majority = self.consensus_runs // 2 + 1
+        counts: dict[tuple, int] = {}
+        merged: dict[tuple, RawEvent] = {}
+        order: list[tuple] = []
+        for run in runs:
+            seen_this_run: set[tuple] = set()
+            for event in run:
+                key = (event.event_type, event.start_time, event.end_time)
+                if key in seen_this_run:
+                    continue
+                seen_this_run.add(key)
+                counts[key] = counts.get(key, 0) + 1
+                if key not in merged:
+                    merged[key] = event
+                    order.append(key)
+                elif merged[key].stated_utc_offset is None and event.stated_utc_offset:
+                    merged[key] = event
+        kept = [merged[key] for key in order if counts[key] >= majority]
+        dropped = [key for key in order if counts[key] < majority]
+        if dropped:
+            logger.info(
+                "Consensus (%d runs) dropped %d minority event(s): %s",
+                self.consensus_runs,
+                len(dropped),
+                dropped,
+            )
+        return kept
 
     def _extract_once(self, prompt: str, model: str) -> list[RawEvent]:
         raw = self.backend.complete(prompt, model)

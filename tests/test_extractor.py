@@ -97,3 +97,57 @@ def test_think_block_and_prose_combined() -> None:
     backend = ScriptedBackend([response])
     events = EventExtractor(backend, ["m1"]).extract("text")
     assert len(events) == 1
+
+
+def event_json(start: str, end: str, event_type: str = "maintenance") -> str:
+    return (
+        f'{{"event_type": "{event_type}", "start_time": "{start}", "end_time": "{end}",'
+        ' "stated_utc_offset": "+03:00", "confidence": "high"}'
+    )
+
+
+A = event_json("2026-06-06T08:00:00", "2026-06-06T14:00:00")
+B = event_json("2026-06-06T14:00:00", "2026-06-06T22:00:00")
+C = event_json("2026-06-06T09:00:00", "2026-06-06T13:00:00")  # the flaky minority event
+
+
+def test_consensus_keeps_majority_drops_minority() -> None:
+    """3 runs: A+B / A+B+C / A+B  ->  A and B kept (3/3), C dropped (1/3)."""
+    backend = ScriptedBackend([f"[{A},{B}]", f"[{A},{B},{C}]", f"[{A},{B}]"])
+    events = EventExtractor(backend, ["m1"], consensus_runs=3).extract("text")
+    assert len(backend.calls) == 3
+    starts = [e.start_time for e in events]
+    assert starts == ["2026-06-06T08:00:00", "2026-06-06T14:00:00"]
+
+
+def test_consensus_keeps_two_of_three() -> None:
+    backend = ScriptedBackend([f"[{A},{C}]", f"[{A},{C}]", f"[{A}]"])
+    events = EventExtractor(backend, ["m1"], consensus_runs=3).extract("text")
+    assert len(events) == 2  # C appears in 2/3 runs -> kept
+
+
+def test_consensus_identity_ignores_confidence() -> None:
+    low = A.replace('"confidence": "high"', '"confidence": "low"')
+    backend = ScriptedBackend([f"[{A}]", f"[{low}]", f"[{A}]"])
+    events = EventExtractor(backend, ["m1"], consensus_runs=3).extract("text")
+    assert len(events) == 1  # same event despite differing confidence
+
+
+def test_consensus_merges_offset_variants_and_keeps_explicit() -> None:
+    """The same wall-clock event with offset None vs '+03:00' must not split the vote."""
+    no_offset = A.replace('"stated_utc_offset": "+03:00"', '"stated_utc_offset": null')
+    backend = ScriptedBackend([f"[{no_offset}]", f"[{A}]", f"[{no_offset}]"])
+    events = EventExtractor(backend, ["m1"], consensus_runs=3).extract("text")
+    assert len(events) == 1
+    assert events[0].stated_utc_offset == "+03:00"  # explicit variant wins the merge
+
+
+def test_consensus_runs_one_is_single_call() -> None:
+    backend = ScriptedBackend([f"[{A}]"])
+    events = EventExtractor(backend, ["m1"], consensus_runs=1).extract("text")
+    assert len(backend.calls) == 1 and len(events) == 1
+
+
+def test_consensus_all_empty_is_empty() -> None:
+    backend = ScriptedBackend(["[]", "[]", "[]"])
+    assert EventExtractor(backend, ["m1"], consensus_runs=3).extract("text") == []
