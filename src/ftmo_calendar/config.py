@@ -64,6 +64,19 @@ class NotifyConfig:
 
 
 @dataclass(frozen=True)
+class IcsConfig:
+    enabled: bool = False
+    path: str = "ftmo-events.ics"
+
+
+@dataclass(frozen=True)
+class ServeConfig:
+    host: str = "0.0.0.0"  # noqa: S104 - explicit opt-in via the serve command
+    port: int = 8080
+    sync_interval_minutes: int = 360
+
+
+@dataclass(frozen=True)
 class EventRules:
     max_duration_hours: int = 48
     max_days_ahead: int = 120
@@ -78,6 +91,8 @@ class AppConfig:
     events: EventRules
     base_dir: Path
     notify: NotifyConfig = field(default_factory=NotifyConfig)
+    ics: IcsConfig = field(default_factory=IcsConfig)
+    serve: ServeConfig = field(default_factory=ServeConfig)
 
     @property
     def state_path(self) -> Path:
@@ -176,6 +191,8 @@ def load_config(path: Path, env: Mapping[str, str] | None = None) -> AppConfig:
         events=events,
         base_dir=path.resolve().parent,
         notify=notify,
+        ics=_section(IcsConfig, data, "ics"),
+        serve=_section(ServeConfig, data, "serve"),
     )
     _validate(cfg)
     return cfg

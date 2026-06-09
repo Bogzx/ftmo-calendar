@@ -123,6 +123,10 @@ def _cmd_run(config: AppConfig, dry_run: bool) -> int:
     if not dry_run:
         _notify_run_outcome(config, make_notifiers(config.notify), report, state)
         save_state(state, config.state_path)
+        if config.ics.enabled:
+            from ftmo_calendar.sinks.ics import write_ics
+
+            write_ics(state, config.resolve(config.ics.path), config.calendar.reminders_minutes)
     print(report.summary())
     return EXIT_OK
 
