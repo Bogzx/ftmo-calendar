@@ -15,7 +15,7 @@ import logging
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -29,6 +29,7 @@ class ServerStatus:
     """Thread-safe record of how the background sync is doing."""
 
     started_at: str
+    interval_seconds: float = 0
     last_run: str | None = None
     last_error: str | None = None
     runs_ok: int = 0
@@ -49,10 +50,17 @@ class ServerStatus:
 
     def snapshot(self) -> dict:
         with self._lock:
+            next_run = None
+            if self.last_run and self.interval_seconds:
+                next_dt = datetime.fromisoformat(self.last_run) + timedelta(
+                    seconds=self.interval_seconds
+                )
+                next_run = next_dt.isoformat()
             return {
                 "ok": self.last_error is None,
                 "started_at": self.started_at,
                 "last_run": self.last_run,
+                "next_run": next_run,
                 "last_error": self.last_error,
                 "runs_ok": self.runs_ok,
                 "runs_failed": self.runs_failed,
@@ -69,16 +77,21 @@ def run_sync_loop(
     """Run sync_fn immediately and then every interval until stop is set.
 
     A failing sync is recorded and reported but never kills the loop — the
-    feed keeps serving the last good data.
+    feed keeps serving the last good data. A persistent identical error is
+    notified once, not every interval; a success resets the dedup so a
+    recurring flap still alerts.
     """
+    last_notified_error: str | None = None
     while not stop.is_set():
         try:
             sync_fn()
             status.record_success()
+            last_notified_error = None
         except Exception as e:  # noqa: BLE001 - loop must survive any sync failure
             logger.exception("Scheduled sync failed")
             status.record_failure(e)
-            if on_error is not None:
+            if on_error is not None and str(e) != last_notified_error:
+                last_notified_error = str(e)
                 try:
                     on_error(e)
                 except Exception:  # noqa: BLE001
@@ -125,6 +138,25 @@ def make_handler(
     return Handler
 
 
+def _next_event_line(state) -> str:  # noqa: ANN001
+    now = datetime.now(UTC)
+    upcoming = []
+    for post in state.posts.values():
+        for event in post.events:
+            if not event.start or not event.summary:
+                continue
+            try:
+                start = datetime.fromisoformat(event.start)
+            except ValueError:
+                continue
+            if start > now:
+                upcoming.append((start, event.summary))
+    if not upcoming:
+        return "none scheduled"
+    start, summary = min(upcoming)
+    return f"{html.escape(summary)} — {start:%a %d %b %H:%M %Z}"
+
+
 def _status_page(state_path: Path, status: ServerStatus) -> bytes:
     snapshot = status.snapshot()
     state = load_state(state_path)
@@ -138,16 +170,27 @@ def _status_page(state_path: Path, status: ServerStatus) -> bytes:
             )
     health = "🟢 healthy" if snapshot["ok"] else f"🔴 {html.escape(snapshot['last_error'] or '')}"
     page = f"""<!doctype html>
-<html><head><meta charset="utf-8"><title>AutoFtmoCalendar</title>
+<html><head><meta charset="utf-8"><title>FTMO Trading Calendar</title>
 <style>body{{font-family:system-ui,sans-serif;max-width:48rem;margin:2rem auto;padding:0 1rem}}
 table{{border-collapse:collapse;width:100%}}
 td,th{{border:1px solid #ddd;padding:.4rem;text-align:left}}
-code{{background:#f4f4f4;padding:.1rem .3rem}}</style></head><body>
-<h1>AutoFtmoCalendar</h1>
+code{{background:#f4f4f4;padding:.1rem .3rem}}
+.next{{font-size:1.1rem;background:#fff8e1;border:1px solid #f0d000;border-radius:.5rem;padding:.8rem}}</style>
+</head><body>
+<h1>FTMO Trading Calendar</h1>
+<p class="next"><strong>Next event:</strong> {_next_event_line(state)}</p>
 <p>Status: {health}</p>
 <p>Last sync: {html.escape(snapshot["last_run"] or "never")} ·
+next: {html.escape(snapshot["next_run"] or "–")} ·
 ok: {snapshot["runs_ok"]} · failed: {snapshot["runs_failed"]}</p>
-<p>Subscribe to the feed: <code>/feed.ics</code></p>
+<h2>Subscribe (free, no account needed)</h2>
+<p>Add this server's feed to your own calendar — it stays in sync automatically:</p>
+<ul>
+<li><strong>Google Calendar:</strong> Other calendars → <em>+</em> → <em>From URL</em> →
+paste <code>https://&lt;this-host&gt;/feed.ics</code></li>
+<li><strong>Apple Calendar:</strong> File → <em>New Calendar Subscription…</em> → paste the URL</li>
+<li><strong>Outlook:</strong> Add calendar → <em>Subscribe from web</em> → paste the URL</li>
+</ul>
 <h2>Tracked events</h2>
 <table><tr><th>Event</th><th>Start</th><th>End</th><th>Source post</th></tr>
 {"".join(rows) or '<tr><td colspan="4">none yet</td></tr>'}
@@ -164,7 +207,9 @@ def serve_forever(
     sync_fn: Callable[[], None],
     on_error: Callable[[BaseException], None] | None = None,
 ) -> int:
-    status = ServerStatus(started_at=datetime.now(UTC).isoformat())
+    status = ServerStatus(
+        started_at=datetime.now(UTC).isoformat(), interval_seconds=interval_seconds
+    )
     stop = threading.Event()
     loop_thread = threading.Thread(
         target=run_sync_loop,

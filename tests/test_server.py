@@ -42,7 +42,7 @@ def server(tmp_path: Path):
     ics_path = tmp_path / "feed.ics"
     write_ics(state, ics_path, (60,), now=NOW)
 
-    status = ServerStatus(started_at=NOW.isoformat())
+    status = ServerStatus(started_at=NOW.isoformat(), interval_seconds=3600)
     handler = make_handler(ics_path=ics_path, state_path=state_path, status=status)
     httpd = ThreadingHTTPServer(("127.0.0.1", 0), handler)
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
@@ -137,4 +137,36 @@ def test_sync_loop_records_failure_and_continues() -> None:
     snapshot = status.snapshot()
     assert snapshot["runs_failed"] == 2
     assert "scrape failed" in snapshot["last_error"]
-    assert len(errors) == 2
+    # Identical persistent error: notified ONCE, not every interval.
+    assert len(errors) == 1
+
+
+def test_sync_loop_notifies_distinct_and_recurring_errors() -> None:
+    status = ServerStatus(started_at=NOW.isoformat())
+    stop = threading.Event()
+    errors = []
+    script = [RuntimeError("error A"), None, RuntimeError("error A"), RuntimeError("error B")]
+
+    def sync() -> None:
+        step = script.pop(0)
+        if not script:
+            stop.set()
+        if step is not None:
+            raise step
+
+    run_sync_loop(sync, interval_seconds=0.01, stop=stop, status=status, on_error=errors.append)
+    # A (new), success resets, A again (new after reset), B (different)
+    assert [str(e) for e in errors] == ["error A", "error A", "error B"]
+
+
+def test_healthz_includes_next_run(server) -> None:
+    base, status, _ = server
+    status.record_success(now=NOW)
+    payload = json.loads(get(f"{base}/healthz")[2])
+    assert payload["next_run"] == "2026-06-09T13:00:00+00:00"  # NOW + 3600s interval
+
+
+def test_status_page_shows_next_event(server) -> None:
+    base, _, _ = server
+    body = get(f"{base}/status")[2].decode("utf-8")
+    assert "Next event" in body
