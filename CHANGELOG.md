@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.4.0 — 2026-06-09
+
+Feed-first hosting: run a public feed for a whole group with just an LLM key.
+
+### Added
+- **Feed-only mode** (`[calendar] enabled = false`): no Google account needed
+  anywhere — the host runs one container, subscribers paste a URL
+- `--dry-run` no longer requires Google credentials (preview before any setup)
+- Status page upgraded into a shareable landing page: next upcoming event,
+  sync health, and per-app subscribe instructions
+- `/healthz` now reports `next_run` so monitors can detect overdue syncs
+- ICS feed: `REFRESH-INTERVAL`/`X-PUBLISHED-TTL` hints and per-event source
+  links in descriptions
+- Docker `HEALTHCHECK` against `/healthz`
+
+### Fixed
+- Config and state files written by Notepad/PowerShell (UTF-8 BOM) parse
+  correctly instead of failing with a cryptic TOML error
+- Serve mode writes the feed from existing state at startup — a restart with a
+  failing sync no longer 404s the feed
+- A persistent identical sync error notifies once, not every interval
+
 ## 0.3.0 — 2026-06-09
 
 Reach & visibility: notifications, ICS feed, hosted mode, Docker.

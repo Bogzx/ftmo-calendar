@@ -175,7 +175,8 @@ def _status_page(state_path: Path, status: ServerStatus) -> bytes:
 table{{border-collapse:collapse;width:100%}}
 td,th{{border:1px solid #ddd;padding:.4rem;text-align:left}}
 code{{background:#f4f4f4;padding:.1rem .3rem}}
-.next{{font-size:1.1rem;background:#fff8e1;border:1px solid #f0d000;border-radius:.5rem;padding:.8rem}}</style>
+.next{{font-size:1.1rem;background:#fff8e1;border:1px solid #f0d000;
+border-radius:.5rem;padding:.8rem}}</style>
 </head><body>
 <h1>FTMO Trading Calendar</h1>
 <p class="next"><strong>Next event:</strong> {_next_event_line(state)}</p>

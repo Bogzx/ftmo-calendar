@@ -12,6 +12,45 @@ dedicated Google Calendar in sync — **including updating or removing events wh
 reschedules an announcement**. Events come with popup reminders, so you get warned
 *before* the platform goes down, not after.
 
+## Two ways to use it
+
+| Role | What you do | What you need |
+| --- | --- | --- |
+| **Subscriber** (most people) | Paste a hosted feed URL into Google/Apple/Outlook calendar — done in 30 seconds | Nothing. No accounts, no API keys, no install |
+| **Host** (one person per group) | Run one Docker container on any VPS; it scrapes, parses, and publishes the feed for everyone | An LLM API key. Google account optional |
+
+### Subscribe to a hosted feed (30 seconds)
+
+If someone already hosts a feed for your group, add it to your calendar:
+
+- **Google Calendar:** Other calendars → **+** → *From URL* → paste `https://<host>/feed.ics`
+- **Apple Calendar:** File → *New Calendar Subscription…* → paste the URL
+- **Outlook:** Add calendar → *Subscribe from web* → paste the URL
+
+Your calendar app re-polls the feed automatically; the feed itself carries a
+refresh hint matching the host's sync interval.
+
+### Host a feed on your VPS (5 minutes)
+
+Feed-only mode needs **no Google account at all** — one LLM key and one container:
+
+```bash
+git clone https://github.com/Bogzx/AutoFtmoCalendar && cd AutoFtmoCalendar
+mkdir data
+printf '[calendar]\nenabled = false\n' > data/config.toml
+cp .env.example .env          # put your LLM_API_KEY in it
+docker compose up -d
+```
+
+That's it. Your group subscribes to `http://your-vps:8080/feed.ics`, and
+`http://your-vps:8080/status` is a shareable page with the next event and
+subscribe instructions. `/healthz` reports `ok`, `last_run`, `next_run`, and
+`last_error` for uptime monitors. A failing sync never takes the feed down —
+the last good data keeps serving and you get a notification (see below).
+
+For public hosting, put it behind a reverse proxy with HTTPS (Caddy/nginx) —
+the container itself serves plain HTTP.
+
 ## How it works
 
 ```mermaid
@@ -131,32 +170,22 @@ Set `heartbeat_hours = 24` under `[notify]` in `config.toml` for a daily
 "✅ alive" ping — so silence always means something is wrong, never that the
 tool quietly died.
 
-## ICS feed (no Google account needed)
+## ICS feed details
 
-Set `[ics] enabled = true` and every run also writes `ftmo-events.ics`. Anyone
-can subscribe to that file (or the URL served by `serve`, below) from Google,
-Apple, or Outlook calendars — zero OAuth setup on the subscriber side.
+Set `[ics] enabled = true` (forced on automatically in feed-only and serve
+modes) and every run writes `ftmo-events.ics`: stable UIDs per event, UTC
+times, popup alarms matching `reminders_minutes`, a `REFRESH-INTERVAL` hint
+for subscribers, and a source link in each event's description.
 
-## Hosting a feed for your trading group
-
-`ftmo-calendar serve` runs the sync on a schedule **and** hosts the results
-over HTTP: one person runs it, the whole group subscribes.
+`ftmo-calendar serve` exposes it over HTTP alongside operations endpoints:
 
 - `GET /feed.ics` — the calendar feed (add it as "subscribe by URL")
-- `GET /status` — human status page with tracked events
-- `GET /healthz` — JSON health for uptime monitors
+- `GET /status` — shareable page: next event, sync health, subscribe how-to
+- `GET /healthz` — JSON with `ok`, `last_run`, `next_run`, `last_error`
 
-The easiest way to run it is Docker:
-
-```bash
-mkdir data && cp config.example.toml data/config.toml
-cp .env.example .env                      # add LLM_API_KEY
-# put service_account.json in data/ and set calendar_id (see setup below)
-docker compose up -d
-```
-
-A failing sync never takes the feed down — the last good data keeps serving,
-`/healthz` reports the error, and your notification channel gets the details.
+Serve mode keeps the feed available from the moment it starts (last good data,
+even if the newest sync attempt fails) and notifies a given error only once —
+not every interval — until it changes or resolves.
 
 ## Scheduling
 

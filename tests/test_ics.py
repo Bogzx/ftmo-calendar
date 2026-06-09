@@ -82,8 +82,6 @@ def test_no_refresh_hints_by_default() -> None:
 
 
 def test_description_with_source_url() -> None:
-    ics = render_ics(
-        make_state(), (), source_url="https://ftmo.com/en/trading-updates/", now=NOW
-    )
+    ics = render_ics(make_state(), (), source_url="https://ftmo.com/en/trading-updates/", now=NOW)
     assert "DESCRIPTION:Source: https://ftmo.com/en/trading-updates/" in ics
     assert "AutoFtmoCalendar" in ics

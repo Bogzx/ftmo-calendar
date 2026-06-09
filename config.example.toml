@@ -17,6 +17,8 @@ models = ["gemini-2.5-flash", "gemini-2.0-flash"]   # ordered fallback list
 # The API key comes from the LLM_API_KEY environment variable (see .env.example).
 
 [calendar]
+enabled = true                  # false = feed-only mode: serve/write an ICS feed,
+                                #         no Google account needed anywhere
 auth_mode = "oauth"             # "oauth" (desktop) or "service_account" (servers; never expires)
 name = "Trading"                # calendar found-or-created in oauth mode
 calendar_id = ""                # REQUIRED for service_account; optional override for oauth
