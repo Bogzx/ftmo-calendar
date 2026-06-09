@@ -6,6 +6,8 @@ service_account.json
 app.log
 *.log
 state.json
+config.toml
+*.ics
 
 # Python
 __pycache__/
