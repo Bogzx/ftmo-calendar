@@ -45,8 +45,8 @@ sudo ufw enable
 ## 3. Install the app
 
 ```bash
-git clone https://github.com/Bogzx/AutoFtmoCalendar
-cd AutoFtmoCalendar
+git clone https://github.com/Bogzx/ftmo-calendar
+cd ftmo-calendar
 mkdir data
 ```
 

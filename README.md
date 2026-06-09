@@ -1,12 +1,12 @@
-# AutoFtmoCalendar
+# ftmo-calendar
 
 > Never get caught by an FTMO maintenance window again.
 
-[![CI](https://github.com/Bogzx/AutoFtmoCalendar/actions/workflows/ci.yml/badge.svg)](https://github.com/Bogzx/AutoFtmoCalendar/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/Bogzx/AutoFtmoCalendar)](https://github.com/Bogzx/AutoFtmoCalendar/releases)
+[![CI](https://github.com/Bogzx/ftmo-calendar/actions/workflows/ci.yml/badge.svg)](https://github.com/Bogzx/ftmo-calendar/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Bogzx/ftmo-calendar)](https://github.com/Bogzx/ftmo-calendar/releases)
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
 ![Docker](https://img.shields.io/badge/docker-compose%20ready-2496ED?logo=docker&logoColor=white)
-![License](https://img.shields.io/github/license/Bogzx/AutoFtmoCalendar)
+![License](https://img.shields.io/github/license/Bogzx/ftmo-calendar)
 
 AutoFtmoCalendar watches [FTMO's trading updates page](https://ftmo.com/en/trading-updates/),
 extracts scheduled platform maintenance and market closures with an LLM, and keeps a
@@ -37,7 +37,7 @@ refresh hint matching the host's sync interval.
 Feed-only mode needs **no Google account at all** — one LLM key and one container:
 
 ```bash
-git clone https://github.com/Bogzx/AutoFtmoCalendar && cd AutoFtmoCalendar
+git clone https://github.com/Bogzx/ftmo-calendar && cd ftmo-calendar
 mkdir data
 printf '[calendar]\nenabled = false\n' > data/config.toml
 cp .env.example .env          # put your LLM_API_KEY in it
@@ -82,8 +82,8 @@ flowchart LR
 ## Quickstart
 
 ```bash
-git clone https://github.com/Bogzx/AutoFtmoCalendar
-cd AutoFtmoCalendar
+git clone https://github.com/Bogzx/ftmo-calendar
+cd ftmo-calendar
 python -m venv .venv && . .venv/bin/activate    # Windows: .venv\Scripts\activate
 pip install -e .
 
@@ -265,7 +265,7 @@ schtasks /Create /TN "FTMO Calendar" /SC HOURLY /MO 6 `
   Publish it to Production (see setup above), then `ftmo-calendar auth` once more.
   Or switch to a service account and never think about tokens again.
 - **"No trading-update posts found"** → FTMO changed their page structure. Please
-  [open an issue](https://github.com/Bogzx/AutoFtmoCalendar/issues).
+  [open an issue](https://github.com/Bogzx/ftmo-calendar/issues).
 - **LLM quota errors** → add more fallback `models`, or point `provider`/`base_url`
   at a different (or local) provider.
 - **Wrong event times** → FTMO states times in GMT+3; the extractor uses the offset

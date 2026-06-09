@@ -52,6 +52,13 @@ def test_persistence_roundtrip(tmp_path: Path) -> None:
     assert reloaded.snapshot(now=DAY1_LATER)["today"]["visitors"] == 1
 
 
+def test_unwritable_stats_path_never_raises(tmp_path: Path) -> None:
+    """A stats persistence failure must not break page serving (seen live on a VPS)."""
+    stats = StatsStore(tmp_path / "no-such-dir" / "stats.json")
+    stats.record_page_view("alice", now=DAY1)  # must not raise
+    assert stats.snapshot(now=DAY1)["today"]["views"] == 1  # in-memory counts still work
+
+
 def test_corrupt_file_starts_fresh(tmp_path: Path) -> None:
     path = tmp_path / "stats.json"
     path.write_text("{nope", encoding="utf-8")

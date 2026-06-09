@@ -106,6 +106,11 @@ class StatsStore:
             "seen_visitors": sorted(self._seen_visitors),
             "seen_clients": sorted(self._seen_clients),
         }
-        tmp = self._path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(payload), encoding="utf-8")
-        tmp.replace(self._path)
+        try:
+            tmp = self._path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(payload), encoding="utf-8")
+            tmp.replace(self._path)
+        except OSError as e:
+            # Stats are best-effort: a read-only or misowned data dir must
+            # never take a page request down with it.
+            logger.warning("Could not persist stats to %s: %s", self._path, e)

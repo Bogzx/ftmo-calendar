@@ -255,7 +255,7 @@ footer a:hover {{ color:var(--amber); }}
   <span>next sync {iso_or_dash("next_run")}</span>
   <span>ok {snapshot.get("runs_ok", 0)} · failed {snapshot.get("runs_failed", 0)}</span>
   <span>source: <a href="https://ftmo.com/en/trading-updates/" rel="noopener">ftmo.com</a></span>
-  <span><a href="https://github.com/Bogzx/AutoFtmoCalendar" rel="noopener">open source</a> · not affiliated with FTMO</span>
+  <span><a href="https://github.com/Bogzx/ftmo-calendar" rel="noopener">open source</a> · not affiliated with FTMO</span>
   {stats_line}
   {error_line}
 </footer>
