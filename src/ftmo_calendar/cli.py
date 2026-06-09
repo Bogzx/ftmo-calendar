@@ -6,12 +6,23 @@ import argparse
 import contextlib
 import logging
 import sys
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from dotenv import load_dotenv
 
 from ftmo_calendar import __version__
 from ftmo_calendar.config import AppConfig, ConfigError, load_config
+from ftmo_calendar.notify.base import (
+    Notifier,
+    format_error_message,
+    format_heartbeat_message,
+    format_run_message,
+    notify_all,
+)
+from ftmo_calendar.notify.factory import make_notifiers
+from ftmo_calendar.pipeline import RunReport
+from ftmo_calendar.state import State
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +70,29 @@ def _setup_logging(verbose: bool) -> None:
     )
 
 
+def _notify_run_outcome(
+    config: AppConfig,
+    notifiers: list[Notifier],
+    report: RunReport,
+    state: State,
+    now: datetime | None = None,
+) -> None:
+    """Send the change message and, when due, a heartbeat; stamps the heartbeat in state."""
+    if config.notify.on_events:
+        message = format_run_message(report)
+        if message:
+            notify_all(notifiers, message)
+    hours = config.notify.heartbeat_hours
+    if not hours or not notifiers:
+        return
+    now = now or datetime.now(UTC)
+    last = state.last_heartbeat
+    if last is not None and now - datetime.fromisoformat(last) < timedelta(hours=hours):
+        return
+    notify_all(notifiers, format_heartbeat_message(report))
+    state.last_heartbeat = now.isoformat()
+
+
 def _cmd_run(config: AppConfig, dry_run: bool) -> int:
     from ftmo_calendar.parsing.factory import make_backend
     from ftmo_calendar.parsing.llm import EventExtractor
@@ -87,6 +121,7 @@ def _cmd_run(config: AppConfig, dry_run: bool) -> int:
         dry_run=dry_run,
     )
     if not dry_run:
+        _notify_run_outcome(config, make_notifiers(config.notify), report, state)
         save_state(state, config.state_path)
     print(report.summary())
     return EXIT_OK
@@ -155,10 +190,18 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_status(config)
     except (AuthError, ConfigError) as e:
         logger.error("%s", e)
+        _notify_failure(config, command, e)
         return EXIT_CONFIG
-    except Exception:
+    except Exception as e:
         logger.exception("Run failed")
+        _notify_failure(config, command, e)
         return EXIT_ERROR
+
+
+def _notify_failure(config: AppConfig, command: str, error: BaseException) -> None:
+    """The tool's core promise: it never fails silently. Only `run` failures alert."""
+    if command == "run" and config.notify.on_errors:
+        notify_all(make_notifiers(config.notify), format_error_message(error))
 
 
 def entry() -> None:

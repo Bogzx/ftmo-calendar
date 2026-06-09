@@ -1,9 +1,42 @@
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
 import ftmo_calendar.cli as cli
+from ftmo_calendar.config import (
+    AppConfig,
+    CalendarConfig,
+    EventRules,
+    LLMConfig,
+    NotifyConfig,
+    SourceConfig,
+)
 from ftmo_calendar.pipeline import RunReport
+from ftmo_calendar.state import State
+
+NOW = datetime(2026, 6, 9, 12, 0, tzinfo=UTC)
+
+
+class RecordingNotifier:
+    name = "recorder"
+
+    def __init__(self) -> None:
+        self.sent: list[str] = []
+
+    def send(self, text: str) -> None:
+        self.sent.append(text)
+
+
+def notify_config(tmp_path: Path, **notify_kwargs) -> AppConfig:
+    return AppConfig(
+        source=SourceConfig(),
+        llm=LLMConfig(api_key="test"),
+        calendar=CalendarConfig(),
+        events=EventRules(),
+        base_dir=tmp_path,
+        notify=NotifyConfig(**notify_kwargs),
+    )
 
 
 def test_run_is_default_command(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -49,3 +82,52 @@ def test_report_summary_format() -> None:
     report = RunReport(posts_seen=3, posts_relevant=2, events_created=1, dry_run=True)
     text = report.summary()
     assert "[dry-run]" in text and "1 created" in text
+
+
+def test_failure_sends_error_notification(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    recorder = RecordingNotifier()
+    monkeypatch.setattr(cli, "make_notifiers", lambda cfg: [recorder])
+
+    def boom(config, dry_run):
+        raise RuntimeError("scraper exploded")
+
+    monkeypatch.setattr(cli, "_cmd_run", boom)
+    assert cli.main(["--config", str(tmp_path / "config.toml")]) == cli.EXIT_ERROR
+    assert len(recorder.sent) == 1
+    assert "scraper exploded" in recorder.sent[0]
+
+
+def test_notify_run_outcome_sends_on_changes(tmp_path: Path) -> None:
+    recorder = RecordingNotifier()
+    report = RunReport(events_created=1)
+    report.created_lines.append("⚠️ Maintenance — Sat 06 Jun 08:00–14:00")
+    cli._notify_run_outcome(notify_config(tmp_path), [recorder], report, State(), now=NOW)
+    assert len(recorder.sent) == 1
+    assert "Maintenance" in recorder.sent[0]
+
+
+def test_notify_run_outcome_quiet_when_no_changes(tmp_path: Path) -> None:
+    recorder = RecordingNotifier()
+    cli._notify_run_outcome(notify_config(tmp_path), [recorder], RunReport(), State(), now=NOW)
+    assert recorder.sent == []
+
+
+def test_heartbeat_sent_when_due_and_stamped(tmp_path: Path) -> None:
+    recorder = RecordingNotifier()
+    config = notify_config(tmp_path, heartbeat_hours=24)
+    state = State(last_heartbeat="2026-06-07T00:00:00+00:00")  # >24h ago
+    cli._notify_run_outcome(config, [recorder], RunReport(), state, now=NOW)
+    assert len(recorder.sent) == 1 and "✅" in recorder.sent[0]
+    assert state.last_heartbeat == NOW.isoformat()
+
+
+def test_heartbeat_not_sent_when_fresh(tmp_path: Path) -> None:
+    recorder = RecordingNotifier()
+    config = notify_config(tmp_path, heartbeat_hours=24)
+    fresh = "2026-06-09T06:00:00+00:00"  # 6h ago
+    state = State(last_heartbeat=fresh)
+    cli._notify_run_outcome(config, [recorder], RunReport(), state, now=NOW)
+    assert recorder.sent == []
+    assert state.last_heartbeat == fresh
