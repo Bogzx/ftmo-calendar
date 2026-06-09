@@ -1,0 +1,52 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ftmo-calendar"
+version = "0.2.0"
+description = "Sync FTMO trading updates (maintenance windows, market closures) to Google Calendar"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "Bogdan-Alexandru Truta" }]
+keywords = ["ftmo", "trading", "google-calendar", "maintenance"]
+dependencies = [
+  "requests>=2.31",
+  "beautifulsoup4>=4.12",
+  "pydantic>=2.5",
+  "python-dotenv>=1.0",
+  "google-api-python-client>=2.100",
+  "google-auth>=2.23",
+  "google-auth-oauthlib>=1.1",
+  "google-genai>=1.0",
+  "openai>=1.40",
+  "tzdata>=2024.1",
+]
+
+[project.urls]
+Repository = "https://github.com/Bogzx/AutoFtmoCalendar"
+
+[project.scripts]
+ftmo-calendar = "ftmo_calendar.cli:entry"
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.5", "mypy>=1.10", "types-requests"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ftmo_calendar"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.11"
+check_untyped_defs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
