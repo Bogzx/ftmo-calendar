@@ -27,7 +27,12 @@ def _utc_stamp(iso: str) -> str:
 
 
 def render_ics(
-    state: State, reminders_minutes: tuple[int, ...], now: datetime | None = None
+    state: State,
+    reminders_minutes: tuple[int, ...],
+    *,
+    source_url: str = "",
+    refresh_minutes: int = 0,
+    now: datetime | None = None,
 ) -> str:
     now = now or datetime.now(UTC)
     dtstamp = now.astimezone(UTC).strftime("%Y%m%dT%H%M%SZ")
@@ -38,6 +43,12 @@ def render_ics(
         "CALSCALE:GREGORIAN",
         "X-WR-CALNAME:FTMO Trading Updates",
     ]
+    if refresh_minutes > 0:
+        # Hint calendar apps how often to re-poll the subscribed feed.
+        lines += [
+            f"REFRESH-INTERVAL;VALUE=DURATION:PT{refresh_minutes}M",
+            f"X-PUBLISHED-TTL:PT{refresh_minutes}M",
+        ]
     for post in state.posts.values():
         for event in post.events:
             if not event.summary or not event.start:
@@ -50,6 +61,10 @@ def render_ics(
                 f"DTEND:{_utc_stamp(event.end)}",
                 f"SUMMARY:{_escape(event.summary)}",
             ]
+            if source_url:
+                lines.append(
+                    f"DESCRIPTION:Source: {_escape(source_url)}\\nCreated by AutoFtmoCalendar"
+                )
             for minutes in reminders_minutes:
                 lines += [
                     "BEGIN:VALARM",
@@ -67,9 +82,18 @@ def write_ics(
     state: State,
     path: Path,
     reminders_minutes: tuple[int, ...],
+    *,
+    source_url: str = "",
+    refresh_minutes: int = 0,
     now: datetime | None = None,
 ) -> None:
-    content = render_ics(state, reminders_minutes, now=now)
+    content = render_ics(
+        state,
+        reminders_minutes,
+        source_url=source_url,
+        refresh_minutes=refresh_minutes,
+        now=now,
+    )
     tmp = path.with_suffix(".tmp")
     tmp.write_text(content, encoding="utf-8", newline="")
     tmp.replace(path)

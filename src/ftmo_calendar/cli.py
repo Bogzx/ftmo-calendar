@@ -153,7 +153,13 @@ def _cmd_run(config: AppConfig, dry_run: bool) -> int:
         if config.ics.enabled:
             from ftmo_calendar.sinks.ics import write_ics
 
-            write_ics(state, config.resolve(config.ics.path), config.calendar.reminders_minutes)
+            write_ics(
+                state,
+                config.resolve(config.ics.path),
+                config.calendar.reminders_minutes,
+                source_url=config.source.url,
+                refresh_minutes=config.serve.sync_interval_minutes,
+            )
     print(report.summary())
     return EXIT_OK
 
