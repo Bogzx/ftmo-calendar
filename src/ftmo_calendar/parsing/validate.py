@@ -97,7 +97,9 @@ _AFFECTED_LIMIT = 70
 
 def _build_summary(event_type: EventType, affected: str | None, rules: EventRules) -> str:
     summary = rules.summaries.get(event_type.value, rules.summaries["other"])
-    affected = (affected or "").strip()
+    # The affected list is model-extracted from scraped text — strip control
+    # characters so it can never smuggle line breaks into ICS/HTML contexts.
+    affected = "".join(ch for ch in (affected or "") if ch.isprintable()).strip()
     if affected:
         if len(affected) > _AFFECTED_LIMIT:
             affected = affected[:_AFFECTED_LIMIT].rstrip(", ") + "…"

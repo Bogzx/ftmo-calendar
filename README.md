@@ -7,6 +7,20 @@
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
 ![Docker](https://img.shields.io/badge/docker-compose%20ready-2496ED?logo=docker&logoColor=white)
 ![License](https://img.shields.io/github/license/Bogzx/ftmo-calendar)
+[![Live](https://img.shields.io/website?url=https%3A%2F%2Fcalendar.bogdantruta.com%2Fhealthz&label=live%20instance)](https://calendar.bogdantruta.com)
+
+## ⚡ Use it right now — no install
+
+A public instance runs at **[calendar.bogdantruta.com](https://calendar.bogdantruta.com)**.
+Add the feed to your calendar in 30 seconds:
+
+```
+https://calendar.bogdantruta.com/feed.ics
+```
+
+**Google Calendar:** Other calendars → **+** → *From URL* → paste →
+appears on your phone automatically. ([Apple/Outlook instructions and
+per-event-type filters on the live page.](https://calendar.bogdantruta.com))
 
 AutoFtmoCalendar watches [FTMO's trading updates page](https://ftmo.com/en/trading-updates/),
 extracts scheduled platform maintenance and market closures with an LLM, and keeps a
@@ -23,7 +37,7 @@ reschedules an announcement**. Events come with popup reminders, so you get warn
 
 ### Subscribe to a hosted feed (30 seconds)
 
-If someone already hosts a feed for your group, add it to your calendar:
+Use the public instance above, or any feed someone hosts for your group:
 
 - **Google Calendar:** Other calendars → **+** → *From URL* → paste `https://<host>/feed.ics`
 - **Apple Calendar:** File → *New Calendar Subscription…* → paste the URL

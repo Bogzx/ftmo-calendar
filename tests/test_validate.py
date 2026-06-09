@@ -74,6 +74,12 @@ def test_unparseable_datetime_rejected() -> None:
     assert events == [] and "datetime" in rejections[0].reason
 
 
+def test_affected_control_characters_stripped() -> None:
+    events, _ = run([raw(affected="US30\r\nX-INJECTED:1\x00")])
+    assert "\r" not in events[0].summary and "\n" not in events[0].summary
+    assert "US30X-INJECTED:1" in events[0].summary
+
+
 def test_affected_symbols_in_summary() -> None:
     events, _ = run([raw(event_type="early_close", affected="US30.cash, US100.cash")])
     assert events[0].summary == "⏳ Early Close — US30.cash, US100.cash"

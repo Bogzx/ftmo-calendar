@@ -157,6 +157,13 @@ def test_unknown_path_404(server) -> None:
     assert get(f"{server[0]}/nope")[0] == 404
 
 
+def test_security_headers_present(server) -> None:
+    response = urllib.request.urlopen(f"{server[0]}/", timeout=5)
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+    assert response.headers["X-Frame-Options"] == "DENY"
+    assert "Python" not in (response.headers.get("Server") or "")
+
+
 def test_page_sets_visitor_cookie_once(server) -> None:
     base, _, _ = server
     response = urllib.request.urlopen(f"{base}/", timeout=5)

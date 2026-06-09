@@ -116,6 +116,9 @@ def make_handler(
     valid_types = {t.value for t in EventType}
 
     class Handler(BaseHTTPRequestHandler):
+        server_version = "ftmo-calendar"  # don't advertise the Python version
+        sys_version = ""
+
         def log_message(self, format: str, *args) -> None:  # noqa: A002 - stdlib signature
             logger.debug("http: " + format, *args)
 
@@ -129,6 +132,9 @@ def make_handler(
             self.send_response(code)
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(body)))
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Frame-Options", "DENY")
+            self.send_header("Referrer-Policy", "no-referrer")
             for name, value in extra_headers or []:
                 self.send_header(name, value)
             self.end_headers()

@@ -60,6 +60,14 @@ def test_summary_escaped() -> None:
     assert "SUMMARY:Closed\\; markets\\, a\\\\b" in ics
 
 
+def test_crlf_in_summary_cannot_inject_ics_lines() -> None:
+    state = make_state()
+    state.posts["p1"].events[0].summary = "evil\r\nATTENDEE:mailto:x@y"
+    ics = render_ics(state, (), now=NOW)
+    assert "\r\nATTENDEE" not in ics
+    assert "SUMMARY:evil\\nATTENDEE:mailto:x@y" in ics
+
+
 def test_crlf_line_endings() -> None:
     ics = render_ics(make_state(), (), now=NOW)
     assert "\n" not in ics.replace("\r\n", "")

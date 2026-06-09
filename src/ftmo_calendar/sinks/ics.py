@@ -19,6 +19,9 @@ _PRODID = "-//AutoFtmoCalendar//ftmo-calendar//EN"
 
 
 def _escape(text: str) -> str:
+    # \r is stripped (not escaped): raw CR/LF in a property value would let
+    # crafted upstream text inject arbitrary ICS lines into subscriber feeds.
+    text = text.replace("\r", "")
     return text.replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,").replace("\n", "\\n")
 
 
