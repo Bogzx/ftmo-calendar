@@ -42,6 +42,7 @@ class LLMConfig:
 
 @dataclass(frozen=True)
 class CalendarConfig:
+    enabled: bool = True  # false = feed-only mode: no Google account needed at all
     auth_mode: str = "oauth"  # "oauth" | "service_account"
     name: str = "Trading"
     calendar_id: str = ""  # required for service_account; optional override for oauth
@@ -130,7 +131,11 @@ def _validate(cfg: AppConfig) -> None:
         raise ConfigError(
             f"unknown auth_mode {cfg.calendar.auth_mode!r}; use 'oauth' or 'service_account'"
         )
-    if cfg.calendar.auth_mode == "service_account" and not cfg.calendar.calendar_id:
+    if (
+        cfg.calendar.enabled
+        and cfg.calendar.auth_mode == "service_account"
+        and not cfg.calendar.calendar_id
+    ):
         raise ConfigError(
             "calendar.calendar_id is required with auth_mode='service_account' — create the "
             "calendar in Google Calendar, share it with the service account email, and put its "

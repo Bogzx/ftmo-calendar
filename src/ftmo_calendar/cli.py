@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import dataclasses
 import logging
 import sys
 from datetime import UTC, datetime, timedelta
@@ -98,14 +99,36 @@ def _notify_run_outcome(
     state.last_heartbeat = now.isoformat()
 
 
+def _build_sink(config: AppConfig, dry_run: bool):  # noqa: ANN202
+    """Google credentials are only touched for a real Google-bound run.
+
+    Dry runs never call the sink (reconcile short-circuits first), and
+    feed-only mode (`[calendar] enabled = false`) has no calendar at all —
+    neither should require any Google setup.
+    """
+    if dry_run or not config.calendar.enabled:
+        from ftmo_calendar.sinks.null import StateOnlySink
+
+        if not config.calendar.enabled:
+            logger.info("Calendar sync disabled — feed-only mode")
+        return StateOnlySink()
+    from ftmo_calendar.sinks.auth import load_credentials
+    from ftmo_calendar.sinks.google_calendar import GoogleCalendarSink
+
+    credentials = load_credentials(config.calendar, config.base_dir)
+    return GoogleCalendarSink(credentials, config.calendar)
+
+
 def _cmd_run(config: AppConfig, dry_run: bool) -> int:
     from ftmo_calendar.parsing.factory import make_backend
     from ftmo_calendar.parsing.llm import EventExtractor
     from ftmo_calendar.pipeline import run_pipeline
-    from ftmo_calendar.sinks.auth import load_credentials
-    from ftmo_calendar.sinks.google_calendar import GoogleCalendarSink
     from ftmo_calendar.sources.ftmo import FtmoSource
     from ftmo_calendar.state import load_state, save_state
+
+    if not config.calendar.enabled:
+        # Without Google, the ICS feed is the only output — force it on.
+        config = dataclasses.replace(config, ics=dataclasses.replace(config.ics, enabled=True))
 
     source = FtmoSource(
         config.source.url,
@@ -113,8 +136,7 @@ def _cmd_run(config: AppConfig, dry_run: bool) -> int:
         max_age_days=config.source.max_age_days,
     )
     extractor = EventExtractor(make_backend(config.llm), config.llm.models)
-    credentials = load_credentials(config.calendar, config.base_dir)
-    sink = GoogleCalendarSink(credentials, config.calendar)
+    sink = _build_sink(config, dry_run)
     state = load_state(config.state_path)
 
     report = run_pipeline(
@@ -139,6 +161,9 @@ def _cmd_run(config: AppConfig, dry_run: bool) -> int:
 def _cmd_auth(config: AppConfig, check: bool) -> int:
     from ftmo_calendar.sinks.auth import describe_credentials, interactive_auth
 
+    if not config.calendar.enabled:
+        print("Calendar sync is disabled ([calendar] enabled = false) — no Google auth needed.")
+        return EXIT_OK
     if check:
         print(describe_credentials(config.calendar, config.base_dir))
         return EXIT_OK
@@ -152,8 +177,6 @@ def _cmd_auth(config: AppConfig, check: bool) -> int:
 
 
 def _cmd_serve(config: AppConfig, port_override: int | None) -> int:
-    import dataclasses
-
     from ftmo_calendar.server import serve_forever
 
     # The feed is the point of serve mode — force ICS generation on.
