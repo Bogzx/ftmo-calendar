@@ -14,6 +14,8 @@ if [ "$LOCAL" = "$REMOTE" ]; then
 fi
 
 echo "deploying ${REMOTE:0:7} (was ${LOCAL:0:7})"
-git pull -q origin main
+# reset, not pull: a deploy clone tracks origin/main exactly, even across
+# history rewrites or force pushes
+git reset --hard -q origin/main
 docker compose up -d --build
 echo "deployed ${REMOTE:0:7}"
