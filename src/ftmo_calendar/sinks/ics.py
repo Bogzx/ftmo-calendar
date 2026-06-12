@@ -3,15 +3,24 @@
 The feed is a projection of the state file — regenerated wholesale after each
 run. Anyone can subscribe to the resulting file/URL from Google, Apple, or
 Outlook calendars without OAuth.
+
+Event times are written as local times in the calendar's timezone with a TZID
+reference and a matching VTIMEZONE block — the same representation calendar
+apps use in their own exports. Clients still convert to each viewer's
+timezone, but the raw feed reads in the calendar's timezone (matching FTMO's
+announced times) instead of UTC, which read "shifted" to anyone east of
+Greenwich and broke on naive parsers that drop the Z suffix.
 """
 
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
+from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
-from ftmo_calendar.state import State
+from ftmo_calendar.state import State, TrackedEvent
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +34,87 @@ def _escape(text: str) -> str:
     return text.replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,").replace("\n", "\\n")
 
 
-def _utc_stamp(iso: str) -> str:
-    return datetime.fromisoformat(iso).astimezone(UTC).strftime("%Y%m%dT%H%M%SZ")
+def _ics_offset(offset: timedelta) -> str:
+    total = round(offset.total_seconds())
+    sign = "+" if total >= 0 else "-"
+    hours, remainder = divmod(abs(total), 3600)
+    return f"{sign}{hours:02d}{remainder // 60:02d}"
+
+
+def _transitions(
+    tz: ZoneInfo, start: datetime, end: datetime
+) -> Iterator[tuple[datetime, timedelta, timedelta]]:
+    """Yield (utc_onset, offset_before, offset_after) for each UTC-offset change.
+
+    zoneinfo exposes no transition table, so changes are found by probing the
+    UTC timeline day by day and bisecting each change down to the minute
+    (real-world transitions fall on whole minutes).
+    """
+    step = timedelta(days=1)
+    t = start
+    prev_offset = t.astimezone(tz).utcoffset() or timedelta(0)
+    while t < end:
+        nxt = min(t + step, end)
+        offset = nxt.astimezone(tz).utcoffset() or timedelta(0)
+        if offset != prev_offset:
+            lo, hi = t, nxt
+            while hi - lo > timedelta(minutes=1):
+                mid = lo + (hi - lo) / 2
+                if (mid.astimezone(tz).utcoffset() or timedelta(0)) == prev_offset:
+                    lo = mid
+                else:
+                    hi = mid
+            yield hi.replace(second=0, microsecond=0), prev_offset, offset
+        prev_offset = offset
+        t = nxt
+
+
+def _observance(
+    kind: str, local_onset: datetime, offset_from: str, offset_to: str, name: str | None
+) -> list[str]:
+    lines = [
+        f"BEGIN:{kind}",
+        f"DTSTART:{local_onset.strftime('%Y%m%dT%H%M%S')}",
+        f"TZOFFSETFROM:{offset_from}",
+        f"TZOFFSETTO:{offset_to}",
+    ]
+    if name:
+        lines.append(f"TZNAME:{_escape(name)}")
+    lines.append(f"END:{kind}")
+    return lines
+
+
+def _vtimezone_lines(tz: ZoneInfo, first: datetime, last: datetime) -> list[str]:
+    """VTIMEZONE block covering [first, last], or [] for plain UTC.
+
+    The probe window starts a year before the first event so the observance
+    already in effect at that point is always included; any DST zone
+    transitions at least once per 366 days. Callers that get [] back (the
+    zone is UTC throughout) emit Z timestamps with no TZID instead.
+    """
+    probe_start = first.astimezone(UTC) - timedelta(days=366)
+    probe_end = last.astimezone(UTC) + timedelta(days=1)
+    transitions = list(_transitions(tz, probe_start, probe_end))
+    base = probe_start.astimezone(tz)
+    base_offset = base.utcoffset() or timedelta(0)
+    if not transitions and not base_offset:
+        return []
+
+    lines = ["BEGIN:VTIMEZONE", f"TZID:{tz.key}"]
+    if not transitions:
+        # Fixed-offset zone: one observance, conventionally anchored at epoch.
+        offset = _ics_offset(base_offset)
+        lines += _observance("STANDARD", datetime(1970, 1, 1), offset, offset, base.tzname())  # noqa: DTZ001 - deliberate naive local time
+    for utc_onset, before, after in transitions:
+        local_after = utc_onset.astimezone(tz)
+        kind = "DAYLIGHT" if local_after.dst() else "STANDARD"
+        # DTSTART of an observance is the onset wall-clock time in the OLD offset.
+        local_onset = (utc_onset + before).replace(tzinfo=None)
+        lines += _observance(
+            kind, local_onset, _ics_offset(before), _ics_offset(after), local_after.tzname()
+        )
+    lines.append("END:VTIMEZONE")
+    return lines
 
 
 def render_ics(
@@ -36,11 +124,31 @@ def render_ics(
     source_url: str = "",
     refresh_minutes: int = 0,
     types: frozenset[str] | None = None,
+    tz_name: str = "UTC",
     now: datetime | None = None,
 ) -> str:
     """Render the feed; `types` (EventType values) limits it to those kinds of events."""
     now = now or datetime.now(UTC)
+    tz = ZoneInfo(tz_name)
     dtstamp = now.astimezone(UTC).strftime("%Y%m%dT%H%M%SZ")
+
+    selected: list[tuple[TrackedEvent, datetime, datetime]] = []
+    for post in state.posts.values():
+        for event in post.events:
+            if not event.summary or not event.start:
+                continue  # pre-v2 state entry without display data
+            if types is not None and event.event_type not in types:
+                continue
+            selected.append(
+                (event, datetime.fromisoformat(event.start), datetime.fromisoformat(event.end))
+            )
+
+    vtimezone: list[str] = []
+    if selected:
+        vtimezone = _vtimezone_lines(
+            tz, min(s for _, s, _ in selected), max(e for _, _, e in selected)
+        )
+
     name = "FTMO Trading Updates"
     if types is not None:
         name += f" ({', '.join(sorted(types))})"
@@ -51,39 +159,41 @@ def render_ics(
         "CALSCALE:GREGORIAN",
         f"X-WR-CALNAME:{_escape(name)}",
     ]
+    if vtimezone:
+        lines.append(f"X-WR-TIMEZONE:{tz.key}")
     if refresh_minutes > 0:
         # Hint calendar apps how often to re-poll the subscribed feed.
         lines += [
             f"REFRESH-INTERVAL;VALUE=DURATION:PT{refresh_minutes}M",
             f"X-PUBLISHED-TTL:PT{refresh_minutes}M",
         ]
-    for post in state.posts.values():
-        for event in post.events:
-            if not event.summary or not event.start:
-                continue  # pre-v2 state entry without display data
-            if types is not None and event.event_type not in types:
-                continue
+    lines += vtimezone
+
+    def stamp(prop: str, dt: datetime) -> str:
+        if vtimezone:
+            return f"{prop};TZID={tz.key}:{dt.astimezone(tz).strftime('%Y%m%dT%H%M%S')}"
+        return f"{prop}:{dt.astimezone(UTC).strftime('%Y%m%dT%H%M%SZ')}"
+
+    for event, start_dt, end_dt in selected:
+        lines += [
+            "BEGIN:VEVENT",
+            f"UID:{event.event_key}@ftmo-calendar",
+            f"DTSTAMP:{dtstamp}",
+            stamp("DTSTART", start_dt),
+            stamp("DTEND", end_dt),
+            f"SUMMARY:{_escape(event.summary)}",
+        ]
+        if source_url:
+            lines.append(f"DESCRIPTION:Source: {_escape(source_url)}\\nCreated by AutoFtmoCalendar")
+        for minutes in reminders_minutes:
             lines += [
-                "BEGIN:VEVENT",
-                f"UID:{event.event_key}@ftmo-calendar",
-                f"DTSTAMP:{dtstamp}",
-                f"DTSTART:{_utc_stamp(event.start)}",
-                f"DTEND:{_utc_stamp(event.end)}",
-                f"SUMMARY:{_escape(event.summary)}",
+                "BEGIN:VALARM",
+                "ACTION:DISPLAY",
+                f"DESCRIPTION:{_escape(event.summary)}",
+                f"TRIGGER:-PT{minutes}M",
+                "END:VALARM",
             ]
-            if source_url:
-                lines.append(
-                    f"DESCRIPTION:Source: {_escape(source_url)}\\nCreated by AutoFtmoCalendar"
-                )
-            for minutes in reminders_minutes:
-                lines += [
-                    "BEGIN:VALARM",
-                    "ACTION:DISPLAY",
-                    f"DESCRIPTION:{_escape(event.summary)}",
-                    f"TRIGGER:-PT{minutes}M",
-                    "END:VALARM",
-                ]
-            lines.append("END:VEVENT")
+        lines.append("END:VEVENT")
     lines.append("END:VCALENDAR")
     return "\r\n".join(lines) + "\r\n"
 
@@ -95,6 +205,7 @@ def write_ics(
     *,
     source_url: str = "",
     refresh_minutes: int = 0,
+    tz_name: str = "UTC",
     now: datetime | None = None,
 ) -> None:
     content = render_ics(
@@ -102,6 +213,7 @@ def write_ics(
         reminders_minutes,
         source_url=source_url,
         refresh_minutes=refresh_minutes,
+        tz_name=tz_name,
         now=now,
     )
     tmp = path.with_suffix(".tmp")

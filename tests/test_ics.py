@@ -47,6 +47,46 @@ def test_times_converted_to_utc() -> None:
     assert "DTEND:20260606T110000Z" in ics
 
 
+def test_local_times_with_tzid_in_calendar_timezone() -> None:
+    ics = render_ics(make_state(), (), tz_name="Europe/Bucharest", now=NOW)
+    # 08:00+03:00 must read 08:00 — the time FTMO announced — not 05:00 UTC.
+    assert "DTSTART;TZID=Europe/Bucharest:20260606T080000" in ics
+    assert "DTEND;TZID=Europe/Bucharest:20260606T140000" in ics
+    assert "X-WR-TIMEZONE:Europe/Bucharest" in ics
+    assert "DTSTART:20260606T050000Z" not in ics
+
+
+def test_vtimezone_block_with_dst_rules() -> None:
+    ics = render_ics(make_state(), (), tz_name="Europe/Bucharest", now=NOW)
+    assert "BEGIN:VTIMEZONE" in ics
+    assert "TZID:Europe/Bucharest" in ics
+    # The probe year around a June 2026 event spans both EET/EEST changes.
+    assert "BEGIN:DAYLIGHT" in ics and "BEGIN:STANDARD" in ics
+    assert "TZOFFSETTO:+0300" in ics and "TZOFFSETTO:+0200" in ics
+    assert "TZNAME:EEST" in ics and "TZNAME:EET" in ics
+
+
+def test_instant_preserved_across_render_timezones() -> None:
+    # 08:00+03:00 == 05:00Z == 01:00 in New York (EDT) — same instant, any zone.
+    ics = render_ics(make_state(), (), tz_name="America/New_York", now=NOW)
+    assert "DTSTART;TZID=America/New_York:20260606T010000" in ics
+
+
+def test_fixed_offset_zone_gets_single_observance() -> None:
+    # Moscow has had no DST since 2014: one STANDARD observance, equal offsets.
+    ics = render_ics(make_state(), (), tz_name="Europe/Moscow", now=NOW)
+    assert "DTSTART;TZID=Europe/Moscow:20260606T080000" in ics
+    assert ics.count("BEGIN:STANDARD") == 1
+    assert "BEGIN:DAYLIGHT" not in ics
+    assert "TZOFFSETFROM:+0300" in ics and "TZOFFSETTO:+0300" in ics
+
+
+def test_utc_rendering_has_no_vtimezone() -> None:
+    ics = render_ics(make_state(), (), now=NOW)
+    assert "BEGIN:VTIMEZONE" not in ics
+    assert "X-WR-TIMEZONE" not in ics
+
+
 def test_valarm_per_reminder() -> None:
     ics = render_ics(make_state(), (60, 10), now=NOW)
     assert ics.count("BEGIN:VALARM") == 2

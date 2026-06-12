@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8.1 — 2026-06-12
+
+### Fixed
+- ICS feed times no longer render as UTC `Z` timestamps. Events are now
+  written as local times in the calendar's timezone (`[calendar] timezone`,
+  default `Europe/Bucharest` — FTMO platform time) with a `TZID` reference and
+  a generated `VTIMEZONE` block carrying the real DST rules, plus an
+  `X-WR-TIMEZONE` calendar header. Timezone-aware clients show the identical
+  instant they always did (converted to each viewer's local time), but clients
+  that mishandle the `Z` suffix — which made a 9:00 GMT+3 maintenance window
+  appear at 6:00 — now read FTMO's announced wall-clock times directly. The
+  raw feed also matches the announcements again instead of being shifted
+  three hours for everyone east of Greenwich.
+
 ## 0.8.0 — 2026-06-10
 
 Granular event taxonomy (grounded in FTMO's announcement history) + stats.

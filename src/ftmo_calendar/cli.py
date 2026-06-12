@@ -128,6 +128,7 @@ def _write_feed(config: AppConfig, state: State) -> None:
         config.calendar.reminders_minutes,
         source_url=config.source.url,
         refresh_minutes=config.serve.sync_interval_minutes,
+        tz_name=config.calendar.timezone,
     )
 
 
@@ -215,6 +216,7 @@ def _cmd_serve(config: AppConfig, port_override: int | None) -> int:
             source_url=config.source.url,
             refresh_minutes=config.serve.sync_interval_minutes,
             types=types,
+            tz_name=config.calendar.timezone,
         ).encode("utf-8")
 
     from ftmo_calendar.stats import StatsStore
