@@ -30,6 +30,8 @@ def _offset_tz(stated: str) -> timezone | None:
         return None
     sign = 1 if m.group(1) == "+" else -1
     hours, minutes = int(m.group(2)), int(m.group(3) or 0)
+    if hours > 23 or minutes > 59:
+        return None
     return timezone(sign * timedelta(hours=hours, minutes=minutes))
 
 
