@@ -12,6 +12,7 @@ import logging
 import re
 import time
 from datetime import date, timedelta
+from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
@@ -147,7 +148,7 @@ class FtmoSource:
         links: list[str] = []
         for card in soup.select("article.post-card"):
             a = card.find("a", href=True)
-            href = str(a["href"]) if a else ""
+            href = urljoin(self.url, str(a["href"])) if a else ""
             if "/blog/trading-updates/" in href and href not in links:
                 links.append(href)
         return embedded, links
