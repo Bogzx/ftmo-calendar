@@ -93,6 +93,8 @@ class StatsStore:
                 for key, value in data.get("days", {}).items()
             }
             self._today = data.get("today", "")
+            if self._today not in self._days:
+                self._today = ""
             self._seen_visitors = set(data.get("seen_visitors", []))
             self._seen_clients = set(data.get("seen_clients", []))
         except (json.JSONDecodeError, TypeError, ValueError, AttributeError) as e:
