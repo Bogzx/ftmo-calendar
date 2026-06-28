@@ -42,9 +42,20 @@ class State:
         cutoff = now - timedelta(days=_PRUNE_AFTER_DAYS)
         for key in list(self.posts):
             post = self.posts[key]
-            if datetime.fromisoformat(post.last_seen) >= cutoff:
+            last_seen_dt = datetime.fromisoformat(post.last_seen)
+            if last_seen_dt.tzinfo is None:
+                last_seen_dt = last_seen_dt.replace(tzinfo=UTC)
+            if last_seen_dt >= cutoff:
                 continue
-            if all(datetime.fromisoformat(e.end) < now for e in post.events):
+            all_ended = True
+            for e in post.events:
+                end_dt = datetime.fromisoformat(e.end)
+                if end_dt.tzinfo is None:
+                    end_dt = end_dt.replace(tzinfo=UTC)
+                if end_dt >= now:
+                    all_ended = False
+                    break
+            if all_ended:
                 del self.posts[key]
 
 
