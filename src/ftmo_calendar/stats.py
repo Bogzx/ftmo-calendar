@@ -98,6 +98,9 @@ class StatsStore:
         except (json.JSONDecodeError, TypeError, ValueError, AttributeError) as e:
             logger.warning("Stats file %s is corrupt (%s); starting fresh", self._path, e)
             self._days = {}
+            self._today = ""
+            self._seen_visitors = set()
+            self._seen_clients = set()
 
     def _save(self) -> None:
         payload = {
