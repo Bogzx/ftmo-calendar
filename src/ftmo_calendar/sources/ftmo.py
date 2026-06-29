@@ -8,10 +8,12 @@ same content container.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import re
 import time
 from datetime import date, timedelta
+from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
@@ -63,10 +65,12 @@ def parse_title_date(text: str) -> date | None:
     """Parse '28 May 2026', 'Jun 4 2026', or slug '...-28-may-2026' into a date."""
     m = _DAY_FIRST.search(text)
     if m and (month := _MONTHS.get(m.group(2).lower())):
-        return date(int(m.group(3)), month, int(m.group(1)))
+        with contextlib.suppress(ValueError):
+            return date(int(m.group(3)), month, int(m.group(1)))
     m = _MONTH_FIRST.search(text)
     if m and (month := _MONTHS.get(m.group(1).lower())):
-        return date(int(m.group(3)), month, int(m.group(2)))
+        with contextlib.suppress(ValueError):
+            return date(int(m.group(3)), month, int(m.group(2)))
     return None
 
 
@@ -147,7 +151,7 @@ class FtmoSource:
         links: list[str] = []
         for card in soup.select("article.post-card"):
             a = card.find("a", href=True)
-            href = str(a["href"]) if a else ""
+            href = urljoin(self.url, str(a["href"])) if a else ""
             if "/blog/trading-updates/" in href and href not in links:
                 links.append(href)
         return embedded, links

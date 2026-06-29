@@ -37,6 +37,10 @@ def render_page(state: State, snapshot: dict, stats: dict | None = None) -> byte
             try:
                 start_dt = datetime.fromisoformat(event.start)
                 end_dt = datetime.fromisoformat(event.end)
+                if start_dt.tzinfo is None:
+                    start_dt = start_dt.replace(tzinfo=UTC)
+                if end_dt.tzinfo is None:
+                    end_dt = end_dt.replace(tzinfo=UTC)
             except ValueError:
                 continue
             target = upcoming if end_dt > now else past

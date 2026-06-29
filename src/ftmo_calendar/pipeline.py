@@ -145,7 +145,10 @@ def _reconcile(
     for key, old_event in old.items():
         if key in new_keys:
             continue
-        if datetime.fromisoformat(old_event.end) <= now:
+        end_dt = datetime.fromisoformat(old_event.end)
+        if end_dt.tzinfo is None:
+            end_dt = end_dt.replace(tzinfo=UTC)
+        if end_dt <= now:
             tracked.append(old_event)  # it happened; preserve calendar history
             continue
         logger.info("Announcement changed: removing stale event %s", key)

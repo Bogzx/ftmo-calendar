@@ -93,8 +93,12 @@ def _notify_run_outcome(
         return
     now = now or datetime.now(UTC)
     last = state.last_heartbeat
-    if last is not None and now - datetime.fromisoformat(last) < timedelta(hours=hours):
-        return
+    if last is not None:
+        last_dt = datetime.fromisoformat(last)
+        if last_dt.tzinfo is None:
+            last_dt = last_dt.replace(tzinfo=UTC)
+        if now - last_dt < timedelta(hours=hours):
+            return
     notify_all(notifiers, format_heartbeat_message(report))
     state.last_heartbeat = now.isoformat()
 
